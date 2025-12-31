@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { PendingRequest, PendingRequestWire, RequestFilter, DisplayRequest, RequestMeta, TrustLevel } from '@signet/types';
-import { apiGet, apiPost } from '../lib/api-client.js';
+import { apiGet, apiPost, apiDelete } from '../lib/api-client.js';
 import { buildErrorMessage, formatRelativeTime, toNpub } from '../lib/formatters.js';
 import { useSSESubscription } from '../contexts/ServerEventsContext.js';
 import type { ServerEvent } from './useServerEvents.js';
@@ -21,6 +21,7 @@ interface UseRequestsResult {
   setPassword: (id: string, password: string) => void;
   meta: Record<string, RequestMeta>;
   approve: (id: string, trustLevel?: TrustLevel, alwaysAllow?: boolean, allowKind?: number) => Promise<void>;
+  deny: (id: string) => Promise<void>;
   loadMore: () => Promise<void>;
   refresh: () => Promise<void>;
   // Search and sort
@@ -235,6 +236,27 @@ export function useRequests(): UseRequestsResult {
     }
   }, [requests, passwords, refresh]);
 
+  const deny = useCallback(async (id: string) => {
+    setMeta(prev => ({ ...prev, [id]: { state: 'approving' } }));
+
+    try {
+      const result = await apiDelete<{ ok?: boolean; error?: string }>(`/requests/${id}`);
+
+      if (!result?.ok) {
+        throw new Error(result?.error ?? 'Denial failed');
+      }
+
+      setMeta(prev => ({ ...prev, [id]: { state: 'success', message: 'Denied' } }));
+
+      await refresh();
+    } catch (err) {
+      setMeta(prev => ({
+        ...prev,
+        [id]: { state: 'error', message: buildErrorMessage(err, 'Denial failed') }
+      }));
+    }
+  }, [refresh]);
+
   // Decorate requests with computed fields
   const decoratedRequests: DisplayRequest[] = requests.map(request => {
     const expires = Date.parse(request.expiresAt);
@@ -362,6 +384,7 @@ export function useRequests(): UseRequestsResult {
     setPassword,
     meta,
     approve,
+    deny,
     loadMore,
     refresh,
     searchQuery,

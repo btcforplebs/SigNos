@@ -120,7 +120,6 @@ export function RequestDetailsModal({
   return (
     <FocusTrap
       focusTrapOptions={{
-        initialFocus: false,
         allowOutsideClick: true,
         escapeDeactivates: false,
       }}
@@ -148,6 +147,7 @@ export function RequestDetailsModal({
               </span>
             </div>
             <button
+              type="button"
               className={styles.closeButton}
               onClick={onClose}
               aria-label="Close details"
@@ -235,6 +235,7 @@ export function RequestDetailsModal({
                 <div className={styles.rawJsonHeader}>
                   <h3 className={styles.sectionTitle}>Raw JSON</h3>
                   <button
+                    type="button"
                     className={styles.copyButton}
                     onClick={handleCopy}
                     aria-label="Copy JSON to clipboard"

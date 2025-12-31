@@ -2,209 +2,183 @@ import { useState, useCallback } from 'react';
 import type { KeyInfo } from '@signet/types';
 import { apiGet, apiPost, apiPatch, apiDelete } from '../lib/api-client.js';
 import { buildErrorMessage } from '../lib/formatters.js';
+import { useMutation } from './useMutation.js';
 
 interface DeleteKeyResult {
-  ok: boolean;
-  revokedApps?: number;
-  error?: string;
+    ok: boolean;
+    revokedApps?: number;
+    error?: string;
 }
 
 interface UseKeysResult {
-  keys: KeyInfo[];
-  loading: boolean;
-  error: string | null;
-  refresh: () => Promise<void>;
-  createKey: (data: { keyName: string; passphrase?: string; nsec?: string }) => Promise<KeyInfo | null>;
-  deleteKey: (keyName: string, passphrase?: string) => Promise<{ success: boolean; revokedApps?: number }>;
-  unlockKey: (keyName: string, passphrase: string) => Promise<boolean>;
-  renameKey: (keyName: string, newName: string) => Promise<boolean>;
-  setPassphrase: (keyName: string, passphrase: string) => Promise<boolean>;
-  creating: boolean;
-  deleting: boolean;
-  unlocking: boolean;
-  renaming: boolean;
-  settingPassphrase: boolean;
-  clearError: () => void;
+    keys: KeyInfo[];
+    loading: boolean;
+    error: string | null;
+    refresh: () => Promise<void>;
+    createKey: (data: { keyName: string; passphrase?: string; nsec?: string }) => Promise<KeyInfo | null>;
+    deleteKey: (keyName: string, passphrase?: string) => Promise<{ success: boolean; revokedApps?: number }>;
+    unlockKey: (keyName: string, passphrase: string) => Promise<boolean>;
+    renameKey: (keyName: string, newName: string) => Promise<boolean>;
+    setPassphrase: (keyName: string, passphrase: string) => Promise<boolean>;
+    creating: boolean;
+    deleting: boolean;
+    unlocking: boolean;
+    renaming: boolean;
+    settingPassphrase: boolean;
+    clearError: () => void;
 }
 
 export function useKeys(): UseKeysResult {
-  const [keys, setKeys] = useState<KeyInfo[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [unlocking, setUnlocking] = useState(false);
-  const [renaming, setRenaming] = useState(false);
-  const [settingPassphrase, setSettingPassphrase] = useState(false);
+    const [keys, setKeys] = useState<KeyInfo[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await apiGet<{ keys: KeyInfo[] }>('/keys');
-      setKeys(response.keys);
-      setError(null);
-    } catch (err) {
-      setError(buildErrorMessage(err, 'Unable to load keys'));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    const refresh = useCallback(async () => {
+        setLoading(true);
+        try {
+            const response = await apiGet<{ keys: KeyInfo[] }>('/keys');
+            setKeys(response.keys);
+            setError(null);
+        } catch (err) {
+            setError(buildErrorMessage(err, 'Unable to load keys'));
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-  const createKey = useCallback(async (data: { keyName: string; passphrase?: string; nsec?: string }): Promise<KeyInfo | null> => {
-    if (!data.keyName.trim()) {
-      setError('Key name is required');
-      return null;
-    }
+    // Create key mutation
+    const createMutation = useMutation(
+        async (data: { keyName: string; passphrase?: string; nsec?: string }) => {
+            if (!data.keyName.trim()) {
+                throw new Error('Key name is required');
+            }
+            const result = await apiPost<{ ok?: boolean; key?: KeyInfo; error?: string }>('/keys', data);
+            if (!result.ok) {
+                throw new Error(result.error || 'Failed to create key');
+            }
+            return result.key ?? null;
+        },
+        { errorPrefix: 'Failed to create key', onSuccess: refresh, onError: setError }
+    );
 
-    setCreating(true);
-    setError(null);
+    // Delete key mutation
+    const deleteMutation = useMutation(
+        async ({ keyName, passphrase }: { keyName: string; passphrase?: string }) => {
+            const result = await apiDelete<DeleteKeyResult>(
+                `/keys/${encodeURIComponent(keyName)}`,
+                passphrase ? { passphrase } : undefined
+            );
+            if (!result.ok) {
+                throw new Error(result.error || 'Failed to delete key');
+            }
+            return { success: true, revokedApps: result.revokedApps };
+        },
+        { errorPrefix: 'Failed to delete key', onSuccess: refresh, onError: setError }
+    );
 
-    try {
-      const result = await apiPost<{ ok?: boolean; key?: KeyInfo; error?: string }>('/keys', data);
+    // Unlock key mutation
+    const unlockMutation = useMutation(
+        async ({ keyName, passphrase }: { keyName: string; passphrase: string }) => {
+            const result = await apiPost<{ ok?: boolean; error?: string }>(
+                `/keys/${encodeURIComponent(keyName)}/unlock`,
+                { passphrase }
+            );
+            if (!result.ok) {
+                throw new Error(result.error || 'Failed to unlock key');
+            }
+            return true;
+        },
+        { errorPrefix: 'Failed to unlock key', onSuccess: refresh, onError: setError }
+    );
 
-      if (!result.ok) {
-        throw new Error(result.error || 'Failed to create key');
-      }
+    // Rename key mutation
+    const renameMutation = useMutation(
+        async ({ keyName, newName }: { keyName: string; newName: string }) => {
+            if (!newName.trim()) {
+                throw new Error('New key name is required');
+            }
+            const result = await apiPatch<{ ok?: boolean; error?: string }>(
+                `/keys/${encodeURIComponent(keyName)}`,
+                { newName: newName.trim() }
+            );
+            if (!result.ok) {
+                throw new Error(result.error || 'Failed to rename key');
+            }
+            return true;
+        },
+        { errorPrefix: 'Failed to rename key', onSuccess: refresh, onError: setError }
+    );
 
-      await refresh();
-      return result.key ?? null;
-    } catch (err) {
-      setError(buildErrorMessage(err, 'Failed to create key'));
-      return null;
-    } finally {
-      setCreating(false);
-    }
-  }, [refresh]);
+    // Set passphrase mutation
+    const setPassphraseMutation = useMutation(
+        async ({ keyName, passphrase }: { keyName: string; passphrase: string }) => {
+            if (!passphrase.trim()) {
+                throw new Error('Passphrase is required');
+            }
+            const result = await apiPost<{ ok?: boolean; error?: string }>(
+                `/keys/${encodeURIComponent(keyName)}/set-passphrase`,
+                { passphrase }
+            );
+            if (!result.ok) {
+                throw new Error(result.error || 'Failed to set passphrase');
+            }
+            return true;
+        },
+        { errorPrefix: 'Failed to set passphrase', onSuccess: refresh, onError: setError }
+    );
 
-  const deleteKey = useCallback(async (keyName: string, passphrase?: string): Promise<{ success: boolean; revokedApps?: number }> => {
-    setDeleting(true);
-    setError(null);
+    // Wrapper functions to maintain the same API
+    const createKey = useCallback(async (data: { keyName: string; passphrase?: string; nsec?: string }) => {
+        return createMutation.mutate(data);
+    }, [createMutation]);
 
-    try {
-      const result = await apiDelete<DeleteKeyResult>(
-        `/keys/${encodeURIComponent(keyName)}`,
-        passphrase ? { passphrase } : undefined
-      );
+    const deleteKey = useCallback(async (keyName: string, passphrase?: string) => {
+        const result = await deleteMutation.mutate({ keyName, passphrase });
+        return result ?? { success: false };
+    }, [deleteMutation]);
 
-      if (!result.ok) {
-        throw new Error(result.error || 'Failed to delete key');
-      }
+    const unlockKey = useCallback(async (keyName: string, passphrase: string) => {
+        const result = await unlockMutation.mutate({ keyName, passphrase });
+        return result ?? false;
+    }, [unlockMutation]);
 
-      await refresh();
-      return { success: true, revokedApps: result.revokedApps };
-    } catch (err) {
-      const message = buildErrorMessage(err, 'Failed to delete key');
-      setError(message);
-      return { success: false };
-    } finally {
-      setDeleting(false);
-    }
-  }, [refresh]);
+    const renameKey = useCallback(async (keyName: string, newName: string) => {
+        const result = await renameMutation.mutate({ keyName, newName });
+        return result ?? false;
+    }, [renameMutation]);
 
-  const unlockKey = useCallback(async (keyName: string, passphrase: string): Promise<boolean> => {
-    setUnlocking(true);
-    setError(null);
+    const setPassphrase = useCallback(async (keyName: string, passphrase: string) => {
+        const result = await setPassphraseMutation.mutate({ keyName, passphrase });
+        return result ?? false;
+    }, [setPassphraseMutation]);
 
-    try {
-      const result = await apiPost<{ ok?: boolean; error?: string }>(
-        `/keys/${encodeURIComponent(keyName)}/unlock`,
-        { passphrase }
-      );
+    const clearError = useCallback(() => {
+        setError(null);
+    }, []);
 
-      if (!result.ok) {
-        throw new Error(result.error || 'Failed to unlock key');
-      }
+    // Combine errors from all mutations
+    const combinedError = error
+        || createMutation.error
+        || deleteMutation.error
+        || unlockMutation.error
+        || renameMutation.error
+        || setPassphraseMutation.error;
 
-      await refresh();
-      return true;
-    } catch (err) {
-      const message = buildErrorMessage(err, 'Failed to unlock key');
-      setError(message);
-      return false;
-    } finally {
-      setUnlocking(false);
-    }
-  }, [refresh]);
-
-  const renameKey = useCallback(async (keyName: string, newName: string): Promise<boolean> => {
-    if (!newName.trim()) {
-      setError('New key name is required');
-      return false;
-    }
-
-    setRenaming(true);
-    setError(null);
-
-    try {
-      const result = await apiPatch<{ ok?: boolean; error?: string }>(
-        `/keys/${encodeURIComponent(keyName)}`,
-        { newName: newName.trim() }
-      );
-
-      if (!result.ok) {
-        throw new Error(result.error || 'Failed to rename key');
-      }
-
-      await refresh();
-      return true;
-    } catch (err) {
-      const message = buildErrorMessage(err, 'Failed to rename key');
-      setError(message);
-      return false;
-    } finally {
-      setRenaming(false);
-    }
-  }, [refresh]);
-
-  const setPassphrase = useCallback(async (keyName: string, passphrase: string): Promise<boolean> => {
-    if (!passphrase.trim()) {
-      setError('Passphrase is required');
-      return false;
-    }
-
-    setSettingPassphrase(true);
-    setError(null);
-
-    try {
-      const result = await apiPost<{ ok?: boolean; error?: string }>(
-        `/keys/${encodeURIComponent(keyName)}/set-passphrase`,
-        { passphrase }
-      );
-
-      if (!result.ok) {
-        throw new Error(result.error || 'Failed to set passphrase');
-      }
-
-      await refresh();
-      return true;
-    } catch (err) {
-      const message = buildErrorMessage(err, 'Failed to set passphrase');
-      setError(message);
-      return false;
-    } finally {
-      setSettingPassphrase(false);
-    }
-  }, [refresh]);
-
-  const clearError = useCallback(() => {
-    setError(null);
-  }, []);
-
-  return {
-    keys,
-    loading,
-    error,
-    refresh,
-    createKey,
-    deleteKey,
-    unlockKey,
-    renameKey,
-    setPassphrase,
-    creating,
-    deleting,
-    unlocking,
-    renaming,
-    settingPassphrase,
-    clearError,
-  };
+    return {
+        keys,
+        loading,
+        error: combinedError,
+        refresh,
+        createKey,
+        deleteKey,
+        unlockKey,
+        renameKey,
+        setPassphrase,
+        creating: createMutation.loading,
+        deleting: deleteMutation.loading,
+        unlocking: unlockMutation.loading,
+        renaming: renameMutation.loading,
+        settingPassphrase: setPassphraseMutation.loading,
+        clearError,
+    };
 }

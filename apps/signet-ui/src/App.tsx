@@ -16,6 +16,7 @@ import { RequestDetailsModal } from './components/requests/RequestDetailsModal.j
 import { KeysPanel } from './components/keys/KeysPanel.js';
 import { AppsPanel } from './components/apps/AppsPanel.js';
 import { SettingsPanel } from './components/settings/SettingsPanel.js';
+import { HelpPanel } from './components/help/HelpPanel.js';
 import { useRequests } from './hooks/useRequests.js';
 import { useKeys } from './hooks/useKeys.js';
 import { useApps } from './hooks/useApps.js';
@@ -196,6 +197,7 @@ function AppContent() {
             showAutoApproved={showAutoApproved}
             onPasswordChange={requests.setPassword}
             onApprove={requests.approve}
+            onDeny={requests.deny}
             onViewDetails={setDetailsModalRequest}
             onNavigateToActivity={() => setActiveNav('activity')}
             onNavigateToKeys={() => setActiveNav('keys')}
@@ -240,6 +242,7 @@ function AppContent() {
               return success;
             }}
             onClearError={apps.clearError}
+            onNavigateToHelp={() => setActiveNav('help')}
           />
         );
 
@@ -309,6 +312,9 @@ function AppContent() {
             onClearError={keys.clearError}
           />
         );
+
+      case 'help':
+        return <HelpPanel />;
 
       case 'settings':
         return (

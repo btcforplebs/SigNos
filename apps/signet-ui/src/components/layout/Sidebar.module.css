@@ -288,6 +288,10 @@
   min-width: 0;
 }
 
+.keyRowActive {
+  /* Used for styling children when key is active */
+}
+
 .copyButton {
   display: flex;
   align-items: center;
@@ -297,24 +301,22 @@
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: pointer;
-  opacity: 0;
   transition: all var(--transition-fast);
   flex-shrink: 0;
 }
 
-.keyRow:hover .copyButton {
-  opacity: 1;
+.keyRowActive .copyButton {
+  color: var(--text-primary);
 }
 
 .copyButton:hover {
   background: var(--surface-hover);
-  color: var(--text-primary);
+  color: var(--accent);
 }
 
 .copyButton.copied {
-  opacity: 1;
   color: var(--success);
 }
 

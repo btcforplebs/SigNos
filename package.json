@@ -1,6 +1,9 @@
 {
   "name": "signet-monorepo",
   "private": true,
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "workspaces": [
     "apps/signet",
     "apps/signet-ui",

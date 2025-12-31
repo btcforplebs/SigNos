@@ -179,8 +179,14 @@ export function CommandPalette({
   let globalIndex = -1;
 
   return (
-    <div className={styles.overlay} onClick={handleOverlayClick}>
-      <div className={styles.palette} onKeyDown={handleKeyDown}>
+    <div className={styles.overlay} onClick={handleOverlayClick} role="presentation">
+      <div
+        className={styles.palette}
+        onKeyDown={handleKeyDown}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
+      >
         <div className={styles.inputWrapper}>
           <Search size={18} className={styles.searchIcon} />
           <input
@@ -194,11 +200,12 @@ export function CommandPalette({
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
+            aria-label="Search commands"
           />
           <kbd className={styles.escKey}>esc</kbd>
         </div>
 
-        <div className={styles.list} ref={listRef}>
+        <div className={styles.list} ref={listRef} aria-live="polite">
           {filteredCommands.length === 0 && (
             <div className={styles.empty}>No results found</div>
           )}
@@ -211,6 +218,7 @@ export function CommandPalette({
                 const isSelected = globalIndex === selectedIndex;
                 return (
                   <button
+                    type="button"
                     key={cmd.id}
                     className={`${styles.item} ${isSelected ? styles.selected : ''}`}
                     onClick={cmd.action}
@@ -238,6 +246,7 @@ export function CommandPalette({
                 const isSelected = globalIndex === selectedIndex;
                 return (
                   <button
+                    type="button"
                     key={cmd.id}
                     className={`${styles.item} ${isSelected ? styles.selected : ''}`}
                     onClick={cmd.action}
@@ -265,6 +274,7 @@ export function CommandPalette({
                 const isSelected = globalIndex === selectedIndex;
                 return (
                   <button
+                    type="button"
                     key={cmd.id}
                     className={`${styles.item} ${isSelected ? styles.selected : ''}`}
                     onClick={cmd.action}

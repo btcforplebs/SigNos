@@ -6,6 +6,6 @@ export default defineConfig({
         path: 'prisma/migrations',
     },
     datasource: {
-        url: process.env.DATABASE_URL ?? 'file:/app/config/signet.db',
+        url: process.env.DATABASE_URL ?? 'file:./config/signet.db',
     },
 });

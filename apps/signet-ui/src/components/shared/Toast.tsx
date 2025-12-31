@@ -23,6 +23,7 @@ export function Toast() {
       <div className={styles.actions}>
         {toast.action && toast.actionLabel && (
           <button
+            type="button"
             className={styles.actionButton}
             onClick={(e) => {
               e.stopPropagation();
@@ -35,6 +36,7 @@ export function Toast() {
         )}
         {toast.undo && (
           <button
+            type="button"
             className={styles.undoButton}
             onClick={(e) => {
               e.stopPropagation();
@@ -46,6 +48,7 @@ export function Toast() {
           </button>
         )}
         <button
+          type="button"
           className={styles.closeButton}
           onClick={hideToast}
           aria-label="Dismiss notification"

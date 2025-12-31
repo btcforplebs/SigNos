@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { AppService } from '../../services/index.js';
 import type { TrustLevel } from '@signet/types';
+import type { PreHandlerAuthCsrf } from '../types.js';
 import { sendError } from '../../lib/route-errors.js';
 
 export interface AppsRouteConfig {
@@ -10,7 +11,7 @@ export interface AppsRouteConfig {
 export function registerAppsRoutes(
     fastify: FastifyInstance,
     config: AppsRouteConfig,
-    preHandler: { auth: any[]; csrf: any[] }
+    preHandler: PreHandlerAuthCsrf
 ): void {
     // List all connected apps (GET - no CSRF needed)
     fastify.get('/apps', { preHandler: preHandler.auth }, async (_request: FastifyRequest, reply: FastifyReply) => {

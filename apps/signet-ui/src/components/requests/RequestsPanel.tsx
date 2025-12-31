@@ -165,6 +165,7 @@ export function RequestsPanel({
         <div className={styles.filters}>
           {FILTER_TABS.map(tab => (
             <button
+              type="button"
               key={tab.id}
               className={`${styles.filterTab} ${filter === tab.id ? styles.active : ''}`}
               onClick={() => onFilterChange(tab.id)}
@@ -177,6 +178,7 @@ export function RequestsPanel({
         {filter === 'pending' && pendingRequests.length > 0 && (
           <div className={styles.bulkActions}>
             <button
+              type="button"
               className={styles.selectionButton}
               onClick={onToggleSelectionMode}
             >
@@ -185,15 +187,16 @@ export function RequestsPanel({
 
             {selectionMode && (
               <>
-                <button className={styles.selectAllButton} onClick={onSelectAll}>
+                <button type="button" className={styles.selectAllButton} onClick={onSelectAll}>
                   Select All
                 </button>
                 {selectedIds.size > 0 && (
                   <>
-                    <button className={styles.deselectButton} onClick={onDeselectAll}>
+                    <button type="button" className={styles.deselectButton} onClick={onDeselectAll}>
                       Deselect
                     </button>
                     <button
+                      type="button"
                       className={styles.bulkApproveButton}
                       onClick={onBulkApprove}
                       disabled={bulkApproving}
@@ -285,7 +288,7 @@ export function RequestsPanel({
       {loading && requests.length === 0 ? (
         <LoadingSpinner text="Loading requests..." />
       ) : requests.length === 0 ? (
-        <div className={styles.emptyState}>
+        <div className={styles.emptyState} aria-live="polite">
           <span className={styles.emptyIcon} aria-hidden="true">
             <RequestsIcon size={48} />
           </span>
@@ -317,6 +320,7 @@ export function RequestsPanel({
 
           {hasMore && (
             <button
+              type="button"
               className={styles.loadMoreButton}
               onClick={onLoadMore}
               disabled={loadingMore}

@@ -95,6 +95,7 @@ export function RequestCard({
             )}
           </div>
           <button
+            type="button"
             className={styles.detailsButton}
             onClick={onViewDetails}
             aria-label="View request details"
@@ -201,6 +202,7 @@ export function RequestCard({
                 )}
               </div>
               <button
+                type="button"
                 className={styles.connectButton}
                 onClick={() => onApprove(selectedTrustLevel)}
                 disabled={!canApprove}
@@ -225,6 +227,7 @@ export function RequestCard({
                 </span>
               </label>
               <button
+                type="button"
                 className={styles.approveButton}
                 onClick={() => onApprove(undefined, alwaysAllow, alwaysAllow ? eventKind : undefined)}
                 disabled={!canApprove}

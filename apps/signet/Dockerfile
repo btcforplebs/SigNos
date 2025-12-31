@@ -1,10 +1,9 @@
-FROM node:20-alpine AS build
+FROM node:20-slim AS build
 
 WORKDIR /app
 
-# Install pnpm and build tools for native modules (better-sqlite3)
+# Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
-RUN apk add --no-cache python3 make g++
 
 # Copy root workspace files
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
@@ -17,12 +16,9 @@ COPY packages/signet-types/package.json ./packages/signet-types/
 ENV CI=true
 RUN pnpm install --frozen-lockfile
 
-# Force rebuild better-sqlite3 from source for Alpine/musl compatibility
-# prebuild-install downloads glibc binaries by default; we need musl
-RUN BETTER_SQLITE3_DIR=$(find /app/node_modules -type d -name "better-sqlite3" -path "*/.pnpm/*" | head -1) && \
-    cd "$BETTER_SQLITE3_DIR" && \
-    rm -rf prebuilds build && \
-    npm run build-release
+# Ensure better-sqlite3 native bindings are installed (prebuild-install downloads prebuilt binaries)
+RUN cd /app/node_modules/.pnpm/better-sqlite3@12.5.0/node_modules/better-sqlite3 && \
+    npx --yes prebuild-install -d
 
 # Copy source files
 COPY packages/signet-types ./packages/signet-types
@@ -37,13 +33,13 @@ ENV DATABASE_URL="file:/app/config/signet.db"
 RUN pnpm prisma generate
 RUN pnpm build
 
-# Runtime stage - copy everything from build instead of reinstalling
-FROM node:20-alpine AS runtime
+# Runtime stage
+FROM node:20-slim AS runtime
 
 WORKDIR /app
 
-# Only need runtime dependencies, not build tools
-RUN apk add --no-cache openssl wget
+# Runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends openssl wget ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Copy the entire workspace with compiled node_modules from build
 COPY --from=build /app/node_modules ./node_modules

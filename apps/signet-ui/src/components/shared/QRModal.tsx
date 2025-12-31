@@ -31,16 +31,16 @@ export function QRModal({ open, onClose, value, title = 'Scan QR Code' }: QRModa
   if (!open) return null;
 
   return (
-    <div className={styles.backdrop} onClick={handleBackdropClick}>
-      <div className={styles.modal}>
+    <div className={styles.backdrop} onClick={handleBackdropClick} role="presentation">
+      <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="qr-modal-title">
         <div className={styles.header}>
-          <h2 className={styles.title}>{title}</h2>
-          <button className={styles.closeButton} onClick={onClose}>
+          <h2 id="qr-modal-title" className={styles.title}>{title}</h2>
+          <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>
 
-        <div className={styles.qrContainer}>
+        <div className={styles.qrContainer} role="img" aria-label={`QR code for ${title}`}>
           <QRCodeSVG
             value={value}
             size={240}
@@ -54,7 +54,7 @@ export function QRModal({ open, onClose, value, title = 'Scan QR Code' }: QRModa
           <code className={styles.value}>
             {value.length > 50 ? `${value.slice(0, 25)}...${value.slice(-20)}` : value}
           </code>
-          <button className={styles.copyButton} onClick={handleCopy}>
+          <button type="button" className={styles.copyButton} onClick={handleCopy}>
             {copied ? <Check size={16} /> : <Copy size={16} />}
             <span>{copied ? 'Copied' : 'Copy'}</span>
           </button>

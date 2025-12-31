@@ -20,7 +20,7 @@
   --text-primary: #fafafa;
   --text-secondary: #a1a1aa;
   --text-tertiary: #71717a;
-  --text-muted: #52525b;
+  --text-muted: #6b6b73;
 
   /* Accent colors */
   --accent: #8b5cf6;
@@ -216,4 +216,44 @@ a:hover {
 ::selection {
   background: var(--accent-muted);
   color: var(--text-primary);
+}
+
+/* ============================================
+   Reduced Motion
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+
+/* Base card - composable with CSS modules */
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  transition: border-color var(--transition-fast);
+}
+
+.card:hover {
+  border-color: var(--border);
+}
+
+/* Interactive card variant */
+.card-interactive {
+  cursor: pointer;
+}
+
+.card-interactive:hover {
+  border-color: var(--accent-border);
 }

@@ -1,10 +1,11 @@
 import crypto from 'crypto';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type { PreHandlerFull } from '../types.js';
 import prisma from '../../../db.js';
 
 export function registerTokensRoutes(
     fastify: FastifyInstance,
-    preHandler: { auth: any[]; csrf: any[]; rateLimit: any[] }
+    preHandler: PreHandlerFull
 ): void {
     // List all tokens (GET - no CSRF needed)
     fastify.get('/tokens', { preHandler: preHandler.auth }, async (request: FastifyRequest, reply: FastifyReply) => {

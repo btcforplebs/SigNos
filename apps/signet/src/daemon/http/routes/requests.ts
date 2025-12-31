@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { RequestService, AppService } from '../../services/index.js';
 import type { TrustLevel } from '@signet/types';
+import type { PreHandlerFull } from '../types.js';
 import prisma from '../../../db.js';
 import { grantPermissionsByTrustLevel, permitAllRequests, type AllowScope } from '../../lib/acl.js';
 import { getEventService } from '../../services/event-service.js';
@@ -30,7 +31,7 @@ export interface RequestsRouteConfig {
 export function registerRequestRoutes(
     fastify: FastifyInstance,
     config: RequestsRouteConfig,
-    preHandler: { auth: any[]; csrf: any[]; rateLimit: any[] }
+    preHandler: PreHandlerFull
 ): void {
     // List requests (GET - no CSRF needed)
     fastify.get('/requests', { preHandler: preHandler.auth }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -62,17 +63,44 @@ export function registerRequestRoutes(
         return processRequestWebHandler(request, reply);
     });
 
+    // Deny request (DELETE - needs CSRF)
+    fastify.delete('/requests/:id', { preHandler: [...preHandler.auth, ...preHandler.csrf] }, async (request: FastifyRequest, reply: FastifyReply) => {
+        const { id } = request.params as { id: string };
+
+        const record = await prisma.request.findUnique({ where: { id } });
+
+        if (!record) {
+            return reply.code(404).send({ error: 'Request not found' });
+        }
+
+        if (record.allowed !== null) {
+            return reply.code(400).send({ error: 'Request already processed' });
+        }
+
+        await prisma.request.update({
+            where: { id },
+            data: {
+                allowed: false,
+                processedAt: new Date(),
+            },
+        });
+
+        getEventService().emitRequestDenied(id);
+
+        return reply.send({ ok: true });
+    });
+
     // Batch approval endpoint (POST - needs CSRF)
     fastify.post('/requests/batch', { preHandler: [...preHandler.rateLimit, ...preHandler.auth, ...preHandler.csrf] }, async (request: FastifyRequest, reply: FastifyReply) => {
         const body = request.body as BatchApprovalBody;
 
         if (!body.ids || !Array.isArray(body.ids) || body.ids.length === 0) {
-            return reply.status(400).send({ error: 'ids array is required' });
+            return reply.code(400).send({ error: 'ids array is required' });
         }
 
         // Limit batch size to prevent abuse
         if (body.ids.length > 50) {
-            return reply.status(400).send({ error: 'Maximum 50 requests per batch' });
+            return reply.code(400).send({ error: 'Maximum 50 requests per batch' });
         }
 
         const trustLevel: TrustLevel = body.trustLevel || 'reasonable';

@@ -152,7 +152,9 @@ SIGNET_PORT=3001 UI_PORT=8080 EXTERNAL_URL=https://signet.example.com docker com
 | `SIGNET_PORT` | Port for the REST API | `3000` |
 | `SIGNET_HOST` | Host binding for the REST API | `0.0.0.0` |
 | `EXTERNAL_URL` | Public URL of the UI (for authorization flow) | `http://localhost:4174` |
-| `DATABASE_URL` | SQLite database path | `file:/app/config/signet.db` |
+| `DATABASE_URL` | SQLite database path | `file:/app/config/signet.db` (Docker) |
+
+> **Note:** For local development without Docker, `DATABASE_URL` defaults to `file:./config/signet.db` (relative to `apps/signet/`).
 
 ### UI Variables (`signet-ui`)
 

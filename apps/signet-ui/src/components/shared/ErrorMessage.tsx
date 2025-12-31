@@ -25,6 +25,7 @@ export function ErrorMessage({ error, onRetry, retrying = false }: ErrorMessageP
       </div>
       {onRetry && helpful.canRetry && (
         <button
+          type="button"
           className={styles.retryButton}
           onClick={onRetry}
           disabled={retrying}

@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { KeyService } from '../../services/index.js';
+import type { PreHandlerFull } from '../types.js';
 import { sendError } from '../../lib/route-errors.js';
 
 export interface KeysRouteConfig {
@@ -9,7 +10,7 @@ export interface KeysRouteConfig {
 export function registerKeysRoutes(
     fastify: FastifyInstance,
     config: KeysRouteConfig,
-    preHandler: { auth: any[]; csrf: any[]; rateLimit: any[] }
+    preHandler: PreHandlerFull
 ): void {
     // List all keys (GET - no CSRF needed)
     fastify.get('/keys', { preHandler: preHandler.auth }, async (_request: FastifyRequest, reply: FastifyReply) => {

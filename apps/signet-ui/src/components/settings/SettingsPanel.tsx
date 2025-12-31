@@ -41,6 +41,7 @@ export function SettingsPanel({
               type="checkbox"
               checked={settings.autoRefresh}
               onChange={(e) => updateSettings({ autoRefresh: e.target.checked })}
+              aria-label="Enable auto-refresh"
             />
             <span className={styles.toggleSlider} />
           </label>
@@ -58,6 +59,7 @@ export function SettingsPanel({
               className={styles.select}
               value={settings.refreshInterval}
               onChange={(e) => updateSettings({ refreshInterval: Number(e.target.value) })}
+              aria-label="Refresh interval"
             >
               {REFRESH_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value}>
@@ -90,11 +92,13 @@ export function SettingsPanel({
                 type="checkbox"
                 checked={settings.notificationsEnabled}
                 onChange={(e) => updateSettings({ notificationsEnabled: e.target.checked })}
+                aria-label="Enable browser notifications"
               />
               <span className={styles.toggleSlider} />
             </label>
           ) : (
             <button
+              type="button"
               className={styles.enableButton}
               onClick={onRequestNotificationPermission}
             >
@@ -111,7 +115,7 @@ export function SettingsPanel({
             <strong>Signet</strong> is a NIP-46 remote signer for Nostr.
           </p>
           <p className={styles.version}>
-            Version 0.10.5
+            Version 1.0.0-beta
           </p>
           <p>
             <a

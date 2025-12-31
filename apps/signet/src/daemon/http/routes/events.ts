@@ -1,6 +1,7 @@
 import createDebug from 'debug';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { EventService, ServerEvent } from '../../services/event-service.js';
+import type { PreHandlerAuth } from '../types.js';
 
 const debug = createDebug('signet:sse');
 
@@ -14,7 +15,7 @@ export interface EventsRouteConfig {
 export function registerEventsRoutes(
     fastify: FastifyInstance,
     config: EventsRouteConfig,
-    preHandler: any[]
+    preHandler: PreHandlerAuth
 ): void {
     /**
      * SSE endpoint for real-time events

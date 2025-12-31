@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type { PreHandlerFull } from '../types.js';
 import prisma from '../../../db.js';
 
 const VALID_METHODS = new Set([
@@ -13,7 +14,7 @@ const VALID_METHODS = new Set([
 
 export function registerPoliciesRoutes(
     fastify: FastifyInstance,
-    preHandler: { auth: any[]; csrf: any[]; rateLimit: any[] }
+    preHandler: PreHandlerFull
 ): void {
     // List all policies (GET - no CSRF needed)
     fastify.get('/policies', { preHandler: preHandler.auth }, async (_request: FastifyRequest, reply: FastifyReply) => {

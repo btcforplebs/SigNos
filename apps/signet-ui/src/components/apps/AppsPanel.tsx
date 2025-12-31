@@ -96,6 +96,7 @@ interface AppsPanelProps {
   onUpdateDescription: (appId: number, description: string) => Promise<boolean>;
   onUpdateTrustLevel: (appId: number, trustLevel: TrustLevel) => Promise<boolean>;
   onClearError: () => void;
+  onNavigateToHelp: () => void;
 }
 
 export function AppsPanel({
@@ -106,6 +107,7 @@ export function AppsPanel({
   onUpdateDescription,
   onUpdateTrustLevel,
   onClearError,
+  onNavigateToHelp,
 }: AppsPanelProps) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -209,9 +211,10 @@ export function AppsPanel({
             placeholder="Search apps..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search apps"
           />
           {searchQuery && (
-            <button className={styles.clearSearch} onClick={() => setSearchQuery('')}>
+            <button type="button" className={styles.clearSearch} onClick={() => setSearchQuery('')} aria-label="Clear search">
               &times;
             </button>
           )}
@@ -222,6 +225,7 @@ export function AppsPanel({
             className={styles.filterSelect}
             value={keyFilter}
             onChange={(e) => setKeyFilter(e.target.value)}
+            aria-label="Filter by key"
           >
             <option value="all">All keys</option>
             {keyNames.map(name => (
@@ -233,6 +237,7 @@ export function AppsPanel({
             className={styles.filterSelect}
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortOption)}
+            aria-label="Sort apps"
           >
             <option value="recent">Most recent</option>
             <option value="requests">Most requests</option>
@@ -249,8 +254,10 @@ export function AppsPanel({
           <div className={styles.emptyIcon}>
             <Smartphone size={48} />
           </div>
-          <p>No connected apps</p>
-          <p className={styles.emptyHint}>Apps will appear here when they connect to your keys</p>
+          <p>No apps connected yet</p>
+          <button type="button" className={styles.emptyLink} onClick={onNavigateToHelp}>
+            Need help? Learn more <ChevronRight size={14} />
+          </button>
         </div>
       ) : filteredApps.length === 0 ? (
         <div className={styles.emptyState}>
@@ -271,6 +278,7 @@ export function AppsPanel({
             return (
               <div key={app.id} className={`${styles.appCard} ${isExpanded ? styles.expanded : ''}`}>
                 <button
+                  type="button"
                   className={styles.appHeader}
                   onClick={() => handleExpand(app.id)}
                 >
@@ -324,6 +332,7 @@ export function AppsPanel({
                       <span className={styles.detailLabel}>Trust Level</span>
                       <div className={styles.trustSelector}>
                         <button
+                          type="button"
                           className={`${styles.trustButton} ${styles[app.trustLevel]}`}
                           onClick={() => setTrustMenuOpen(trustMenuOpen === app.id ? null : app.id)}
                         >
@@ -336,6 +345,7 @@ export function AppsPanel({
                               const info = getTrustLevelInfo(level);
                               return (
                                 <button
+                                  type="button"
                                   key={level}
                                   className={`${styles.trustMenuItem} ${app.trustLevel === level ? styles.selected : ''}`}
                                   onClick={() => handleTrustChange(app.id, level)}
@@ -361,15 +371,15 @@ export function AppsPanel({
                             placeholder="App name"
                             autoFocus
                           />
-                          <button className={styles.saveButton} onClick={saveEdit}>Save</button>
-                          <button className={styles.cancelButton} onClick={cancelEdit}>Cancel</button>
+                          <button type="button" className={styles.saveButton} onClick={saveEdit}>Save</button>
+                          <button type="button" className={styles.cancelButton} onClick={cancelEdit}>Cancel</button>
                         </div>
                       ) : (
                         <>
-                          <button className={styles.renameButton} onClick={() => startEdit(app)}>
+                          <button type="button" className={styles.renameButton} onClick={() => startEdit(app)}>
                             Rename
                           </button>
-                          <button className={styles.revokeButton} onClick={() => setRevokeConfirm(app.id)}>
+                          <button type="button" className={styles.revokeButton} onClick={() => setRevokeConfirm(app.id)}>
                             Revoke Access
                           </button>
                         </>

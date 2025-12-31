@@ -2,9 +2,10 @@
 
 A modern NIP-46 remote signer for Nostr. Manages multiple keys securely with a web dashboard for administration. This project was originally forked from [nsecbunkerd](https://github.com/kind-0/nsecbunkerd), but has since received an extensive rewrite.
 
-![Signet Dashboard](signet.png)
+## Screenshots
 
----
+![Signet Dashboard](signet.png)
+![Signet Help](signet-help.png)
 
 ## Quick Start (Docker)
 
@@ -27,11 +28,9 @@ Add keys via CLI or through the web UI:
 docker compose run --rm signet add --name main-key
 ```
 
----
-
 ## Development Setup
 
-**Prereqs:** Node.js 18+, pnpm
+**Prereqs:** Node.js 20+, pnpm
 
 ```bash
 git clone https://github.com/Letdown2491/signet
@@ -56,8 +55,6 @@ cd apps/signet-ui
 pnpm run dev
 ```
 
----
-
 ## Configuration
 
 Config is auto-generated on first boot at:
@@ -66,15 +63,11 @@ Config is auto-generated on first boot at:
 
 See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for all options.
 
----
-
 ## Security
 
 Keys are encrypted with AES-256-GCM (PBKDF2, 600k iterations). API endpoints require JWT auth with CORS and rate limiting.
 
 See [docs/SECURITY.md](docs/SECURITY.md) for the full security model.
-
----
 
 ## Documentation
 

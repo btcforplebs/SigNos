@@ -8,9 +8,11 @@ interface LoadingSpinnerProps {
 
 export function LoadingSpinner({ size = 'medium', text }: LoadingSpinnerProps) {
   return (
-    <div className={styles.container}>
-      <div className={`${styles.spinner} ${styles[size]}`} />
-      {text && <span className={styles.text}>{text}</span>}
+    <div className={styles.container} role="status" aria-live="polite">
+      <div className={`${styles.spinner} ${styles[size]}`} aria-hidden="true" />
+      <span className={text ? styles.text : styles.srOnly}>
+        {text || 'Loading...'}
+      </span>
     </div>
   );
 }

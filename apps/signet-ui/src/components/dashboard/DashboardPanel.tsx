@@ -76,9 +76,11 @@ export function DashboardPanel({ stats, activity, loading, error, showAutoApprov
           <label className={styles.filterToggle}>
             <input
               type="checkbox"
+              className={styles.visuallyHidden}
               checked={showAutoApproved}
               onChange={onToggleShowAutoApproved}
             />
+            <span className={styles.checkbox} aria-hidden="true" />
             <span>Show auto-approved</span>
           </label>
         </div>

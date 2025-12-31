@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import type { DisplayRequest } from '@signet/types';
-import { PenLine, Lock, Unlock, KeyRound, Zap, Clock, ChevronRight, Eye } from 'lucide-react';
-import { getEventKindLabel } from '../../lib/event-labels.js';
+import { Clock, ChevronRight, Eye } from 'lucide-react';
+import { getMethodInfo, getEventKindLabel } from '../../lib/event-labels.js';
+import { formatTtl } from '../../lib/formatters.js';
 import styles from './RequestCard.module.css';
 
 interface RequestCardProps {
@@ -10,22 +11,6 @@ interface RequestCardProps {
   onPasswordChange: (value: string) => void;
   onApprove: () => Promise<void>;
   onViewDetails: () => void;
-}
-
-const methodIcons: Record<string, React.ReactNode> = {
-  sign_event: <PenLine size={16} />,
-  nip04_encrypt: <Lock size={16} />,
-  nip04_decrypt: <Unlock size={16} />,
-  nip44_encrypt: <Lock size={16} />,
-  nip44_decrypt: <Unlock size={16} />,
-  get_public_key: <KeyRound size={16} />,
-};
-
-function formatTtl(ttl: number): string {
-  if (ttl <= 0) return 'Expired';
-  if (ttl < 60) return `${ttl}s`;
-  if (ttl < 3600) return `${Math.floor(ttl / 60)}m`;
-  return `${Math.floor(ttl / 3600)}h`;
 }
 
 export function RequestCard({
@@ -50,7 +35,7 @@ export function RequestCard({
     }
   };
 
-  const icon = methodIcons[request.method] || <Zap size={16} />;
+  const { Icon: MethodIcon } = getMethodInfo(request.method);
   const methodLabel = request.method.replace(/_/g, ' ');
   const needsPassword = request.requiresPassword;
 
@@ -67,13 +52,14 @@ export function RequestCard({
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.methodInfo}>
-          <span className={styles.methodIcon}>{icon}</span>
+          <span className={styles.methodIcon}><MethodIcon size={16} /></span>
           <span className={styles.methodName}>{methodLabel}</span>
           {eventKind && (
             <span className={styles.eventKind}>{eventKind}</span>
           )}
         </div>
         <button
+          type="button"
           className={styles.detailsButton}
           onClick={onViewDetails}
           aria-label="View details"
@@ -123,6 +109,7 @@ export function RequestCard({
           />
         )}
         <button
+          type="button"
           className={styles.approveButton}
           onClick={handleApprove}
           disabled={approving || (needsPassword && !password)}

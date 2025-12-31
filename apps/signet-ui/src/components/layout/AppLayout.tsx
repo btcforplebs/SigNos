@@ -78,15 +78,18 @@ export function AppLayout({
         {/* Mobile header */}
         <header className={styles.mobileHeader}>
           <button
+            type="button"
             className={styles.menuButton}
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <span className={styles.mobileTitle}>Signet</span>
           {onOpenCommandPalette && (
             <button
+              type="button"
               className={styles.commandButton}
               onClick={onOpenCommandPalette}
               aria-label="Open command palette"

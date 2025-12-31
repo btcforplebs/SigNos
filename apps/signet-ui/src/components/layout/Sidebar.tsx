@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { Home, Smartphone, Key, Activity, Settings, ChevronDown, ChevronRight, Link2, Plus } from 'lucide-react';
+import { Home, Smartphone, Key, Activity, Settings, HelpCircle, ChevronDown, ChevronRight, Link2, Plus } from 'lucide-react';
 import type { KeyInfo, RelayStatusResponse } from '@signet/types';
 import { copyToClipboard } from '../../lib/clipboard.js';
 import styles from './Sidebar.module.css';
 
-export type NavItem = 'home' | 'apps' | 'activity' | 'keys' | 'settings';
+export type NavItem = 'home' | 'apps' | 'activity' | 'keys' | 'help' | 'settings';
 
 interface SidebarProps {
   activeNav: NavItem;
@@ -57,20 +57,22 @@ export function Sidebar({
         </div>
         <span className={styles.logoText}>Signet</span>
         {sseConnected && (
-          <span className={styles.liveIndicator} title="Real-time updates active">
-            <span className={styles.liveDot} />
+          <span className={styles.liveIndicator} title="Real-time updates active" aria-label="Real-time updates active">
+            <span className={styles.liveDot} aria-hidden="true" />
           </span>
         )}
       </div>
 
       {/* Main Navigation */}
-      <nav className={styles.nav}>
+      <nav className={styles.nav} aria-label="Main navigation">
         <ul className={styles.navList}>
           {navItems.map((item) => (
             <li key={item.id}>
               <button
+                type="button"
                 className={`${styles.navItem} ${activeNav === item.id ? styles.navItemActive : ''}`}
                 onClick={() => onNavChange(item.id)}
+                aria-current={activeNav === item.id ? 'page' : undefined}
               >
                 <span className={styles.navIcon}>{item.icon}</span>
                 <span className={styles.navLabel}>{item.label}</span>
@@ -84,24 +86,28 @@ export function Sidebar({
         <div className={styles.section}>
           <div className={styles.sectionHeaderRow}>
             <button
+              type="button"
               className={styles.sectionHeader}
               onClick={() => onNavChange('keys')}
-              title="Go to Keys page"
+              aria-label="Go to Keys page"
             >
               <span className={styles.sectionTitle}>Keys</span>
             </button>
             <div className={styles.sectionActions}>
               <button
+                type="button"
                 className={styles.sectionAddButton}
                 onClick={() => onNavChange('keys')}
-                title="Add key"
+                aria-label="Add key"
               >
                 <Plus size={14} />
               </button>
               <button
+                type="button"
                 className={styles.sectionExpandButton}
                 onClick={() => setKeysExpanded(!keysExpanded)}
-                title={keysExpanded ? 'Collapse' : 'Expand'}
+                aria-label={keysExpanded ? 'Collapse keys' : 'Expand keys'}
+                aria-expanded={keysExpanded}
               >
                 {keysExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               </button>
@@ -113,6 +119,7 @@ export function Sidebar({
               {keys.length === 0 ? (
                 <li className={styles.keyEmpty}>
                   <button
+                    type="button"
                     className={styles.keyEmptyButton}
                     onClick={() => onNavChange('keys')}
                   >
@@ -122,8 +129,9 @@ export function Sidebar({
               ) : (
                 keys.map((key) => (
                   <li key={key.name}>
-                    <div className={styles.keyRow}>
+                    <div className={`${styles.keyRow} ${activeKeyName === key.name ? styles.keyRowActive : ''}`}>
                       <button
+                        type="button"
                         className={`${styles.keyItem} ${activeKeyName === key.name ? styles.keyItemActive : ''}`}
                         onClick={() => onKeySelect?.(key.name)}
                       >
@@ -133,14 +141,17 @@ export function Sidebar({
                             key.status === 'locked' ? styles.keyStatusLocked :
                             styles.keyStatusOffline
                           }`}
+                          aria-label={`Key is ${key.status}`}
                         />
                         <span className={styles.keyName}>{key.name}</span>
                       </button>
                       {key.bunkerUri && key.status === 'online' && (
                         <button
+                          type="button"
                           className={`${styles.copyButton} ${copiedKey === key.name ? styles.copied : ''}`}
                           onClick={(e) => handleCopyBunkerUri(e, key)}
-                          title={copiedKey === key.name ? 'Copied!' : 'Copy connection string'}
+                          title={copiedKey === key.name ? 'Copied!' : 'Copy bunker URI'}
+                          aria-label={copiedKey === key.name ? 'Copied!' : 'Copy bunker URI'}
                         >
                           <Link2 size={12} />
                         </button>
@@ -156,8 +167,11 @@ export function Sidebar({
         {/* Relays Section */}
         <div className={styles.section}>
           <button
+            type="button"
             className={styles.sectionHeader}
             onClick={() => setRelaysExpanded(!relaysExpanded)}
+            aria-expanded={relaysExpanded}
+            aria-label={relaysExpanded ? 'Collapse relays' : 'Expand relays'}
           >
             <span className={styles.sectionTitle}>
               Relays
@@ -184,6 +198,7 @@ export function Sidebar({
                           className={`${styles.keyStatus} ${
                             relay.connected ? styles.keyStatusOnline : styles.keyStatusOffline
                           }`}
+                          aria-label={relay.connected ? 'Connected' : 'Disconnected'}
                         />
                         <span className={styles.relayUrl} title={relay.url}>
                           {displayUrl}
@@ -201,8 +216,19 @@ export function Sidebar({
       {/* Bottom Section */}
       <div className={styles.bottom}>
         <button
+          type="button"
+          className={`${styles.navItem} ${activeNav === 'help' ? styles.navItemActive : ''}`}
+          onClick={() => onNavChange('help')}
+          aria-current={activeNav === 'help' ? 'page' : undefined}
+        >
+          <span className={styles.navIcon}><HelpCircle size={18} /></span>
+          <span className={styles.navLabel}>Help</span>
+        </button>
+        <button
+          type="button"
           className={`${styles.navItem} ${activeNav === 'settings' ? styles.navItemActive : ''}`}
           onClick={() => onNavChange('settings')}
+          aria-current={activeNav === 'settings' ? 'page' : undefined}
         >
           <span className={styles.navIcon}><Settings size={18} /></span>
           <span className={styles.navLabel}>Settings</span>

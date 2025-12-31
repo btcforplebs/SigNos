@@ -31,9 +31,10 @@ export function Header({ connectionInfo, sseConnected = false }: HeaderProps) {
               {connectionInfo.npub.slice(0, 12)}...{connectionInfo.npub.slice(-8)}
             </span>
             <button
+              type="button"
               className={styles.copyButton}
               onClick={() => copyToClipboard(connectionInfo.npubUri)}
-              title="Copy bunker URI"
+              aria-label="Copy bunker URI"
             >
               Copy URI
             </button>

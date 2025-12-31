@@ -18,6 +18,7 @@ interface HomeViewProps {
   showAutoApproved: boolean;
   onPasswordChange: (requestId: string, password: string) => void;
   onApprove: (requestId: string, trustLevel?: TrustLevel) => Promise<void>;
+  onDeny: (requestId: string) => Promise<void>;
   onViewDetails: (request: DisplayRequest) => void;
   onNavigateToActivity: () => void;
   onNavigateToKeys: () => void;
@@ -34,6 +35,7 @@ export function HomeView({
   showAutoApproved,
   onPasswordChange,
   onApprove,
+  onDeny,
   onViewDetails,
   onNavigateToActivity,
   onNavigateToKeys,
@@ -41,6 +43,37 @@ export function HomeView({
 }: HomeViewProps) {
   const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
   const [selectedTrustLevels, setSelectedTrustLevels] = useState<Record<string, TrustLevel>>({});
+  const [removingItems, setRemovingItems] = useState<Record<string, 'approved' | 'denied'>>({});
+
+  const handleApprove = async (requestId: string, trustLevel?: TrustLevel) => {
+    // Trigger animation
+    setRemovingItems(prev => ({ ...prev, [requestId]: 'approved' }));
+    // Wait for animation
+    await new Promise(resolve => setTimeout(resolve, 300));
+    // Actually approve
+    await onApprove(requestId, trustLevel);
+    // Clean up animation state
+    setRemovingItems(prev => {
+      const next = { ...prev };
+      delete next[requestId];
+      return next;
+    });
+  };
+
+  const handleDeny = async (requestId: string) => {
+    // Trigger animation
+    setRemovingItems(prev => ({ ...prev, [requestId]: 'denied' }));
+    // Wait for animation
+    await new Promise(resolve => setTimeout(resolve, 300));
+    // Actually deny
+    await onDeny(requestId);
+    // Clean up animation state
+    setRemovingItems(prev => {
+      const next = { ...prev };
+      delete next[requestId];
+      return next;
+    });
+  };
 
   const pendingRequests = requests.filter(r => r.state === 'pending');
 
@@ -173,7 +206,7 @@ export function HomeView({
             <p className={styles.onboardingText}>
               Create your first signing key to start using Signet as a remote signer for your Nostr apps.
             </p>
-            <button className={styles.onboardingButton} onClick={onNavigateToKeys}>
+            <button type="button" className={styles.onboardingButton} onClick={onNavigateToKeys}>
               <Key size={16} />
               Create Your First Key
             </button>
@@ -194,18 +227,24 @@ export function HomeView({
             </h2>
             {pendingRequests.length === 0 ? (
               <div className={styles.emptyState}>
-                <span className={styles.emptyIcon}><Inbox size={32} /></span>
+                <span className={styles.emptyIcon}><Inbox size={18} /></span>
                 <p>No pending approvals</p>
               </div>
             ) : (
               <div className={styles.listCard}>
                 {pendingRequests.map((request) => {
                   const isExpanded = expandedRequestId === request.id;
+                  const removingState = removingItems[request.id];
                   return (
-                    <div key={request.id} className={styles.listItem}>
+                    <div
+                      key={request.id}
+                      className={`${styles.listItem} ${removingState ? styles[`listItem_${removingState}`] : ''}`}
+                    >
                       <button
+                        type="button"
                         className={styles.listItemHeader}
                         onClick={() => setExpandedRequestId(isExpanded ? null : request.id)}
+                        aria-expanded={isExpanded}
                       >
                         <span className={styles.pendingDot} />
                         <span className={styles.listItemMethod}>{request.method}</span>
@@ -227,6 +266,7 @@ export function HomeView({
                                 <input
                                   type="password"
                                   className={styles.passwordInput}
+                                  aria-label="Password to unlock key"
                                   value={passwords[request.id] || ''}
                                   onChange={(e) => onPasswordChange(request.id, e.target.value)}
                                   placeholder="Enter key password"
@@ -242,6 +282,7 @@ export function HomeView({
                                     const isSelected = getTrustLevel(request.id) === level;
                                     return (
                                       <button
+                                        type="button"
                                         key={level}
                                         className={`${styles.trustOption} ${isSelected ? styles.trustOptionSelected : ''} ${styles[`trust_${level}`]}`}
                                         onClick={() => setTrustLevel(request.id, level)}
@@ -257,12 +298,23 @@ export function HomeView({
                           </div>
                           <div className={styles.listItemActions}>
                             <button
+                              type="button"
                               className={styles.approveButton}
-                              onClick={() => onApprove(request.id, request.method === 'connect' ? getTrustLevel(request.id) : undefined)}
+                              onClick={() => handleApprove(request.id, request.method === 'connect' ? getTrustLevel(request.id) : undefined)}
+                              disabled={!!removingState}
                             >
-                              Approve
+                              {removingState === 'approved' ? <Check size={16} /> : 'Approve'}
                             </button>
                             <button
+                              type="button"
+                              className={styles.denyButton}
+                              onClick={() => handleDeny(request.id)}
+                              disabled={!!removingState}
+                            >
+                              {removingState === 'denied' ? <X size={16} /> : 'Deny'}
+                            </button>
+                            <button
+                              type="button"
                               className={styles.detailsButton}
                               onClick={() => onViewDetails(request)}
                             >
@@ -285,15 +337,17 @@ export function HomeView({
               <label className={styles.filterToggle}>
                 <input
                   type="checkbox"
+                  className={styles.visuallyHidden}
                   checked={showAutoApproved}
                   onChange={onToggleShowAutoApproved}
                 />
+                <span className={styles.checkbox} aria-hidden="true" />
                 <span>Show auto</span>
               </label>
             </div>
             {recentActivity.length === 0 ? (
               <div className={styles.emptyState}>
-                <span className={styles.emptyIcon}><Activity size={32} /></span>
+                <span className={styles.emptyIcon}><Activity size={18} /></span>
                 <p>{activity.length === 0 ? 'No recent activity' : 'No manual approvals'}</p>
               </div>
             ) : (
@@ -311,7 +365,7 @@ export function HomeView({
                     </span>
                   </div>
                 ))}
-                <button className={styles.viewAllButton} onClick={onNavigateToActivity}>
+                <button type="button" className={styles.viewAllButton} onClick={onNavigateToActivity}>
                   View all
                   <ChevronRight size={14} />
                 </button>

@@ -49,7 +49,6 @@ export function ConfirmDialog({
   return (
     <FocusTrap
       focusTrapOptions={{
-        initialFocus: false,
         allowOutsideClick: true,
         escapeDeactivates: false, // We handle escape manually
       }}
@@ -70,10 +69,11 @@ export function ConfirmDialog({
           <h3 id="confirm-dialog-title" className={styles.title}>{title}</h3>
           <div id="confirm-dialog-message" className={styles.message}>{message}</div>
           <div className={styles.actions}>
-            <button className={styles.cancelButton} onClick={onCancel}>
+            <button type="button" className={styles.cancelButton} onClick={onCancel}>
               {cancelLabel}
             </button>
             <button
+              type="button"
               className={`${styles.confirmButton} ${danger ? styles.danger : ''}`}
               onClick={onConfirm}
               disabled={disabled}

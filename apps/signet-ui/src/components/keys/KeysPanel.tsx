@@ -234,6 +234,7 @@ export function KeysPanel({
         count={keys.length}
         action={
           <button
+            type="button"
             className={styles.addButton}
             onClick={() => {
               setShowCreateForm(!showCreateForm);
@@ -250,8 +251,9 @@ export function KeysPanel({
       {showCreateForm && (
         <form className={styles.createForm} onSubmit={handleSubmit}>
           <div className={styles.formGroup}>
-            <label className={styles.label}>Key Name</label>
+            <label className={styles.label} htmlFor="keyName">Key Name</label>
             <input
+              id="keyName"
               type="text"
               value={keyName}
               onChange={(e) => setKeyName(e.target.value)}
@@ -280,8 +282,9 @@ export function KeysPanel({
 
           {createMode === 'import' && (
             <div className={styles.formGroup}>
-              <label className={styles.label}>Private Key (nsec)</label>
+              <label className={styles.label} htmlFor="nsec">Private Key (nsec)</label>
               <input
+                id="nsec"
                 type="password"
                 value={nsec}
                 onChange={(e) => setNsec(e.target.value)}
@@ -293,15 +296,17 @@ export function KeysPanel({
           )}
 
           <div className={styles.formGroup}>
-            <label className={styles.label}>Encryption Passphrase (optional)</label>
+            <label className={styles.label} htmlFor="passphrase">Encryption Passphrase (optional)</label>
             <input
+              id="passphrase"
               type="password"
               value={passphrase}
               onChange={(e) => setPassphrase(e.target.value)}
               placeholder="Leave empty for unencrypted storage"
               className={styles.input}
+              aria-describedby="passphrase-hint"
             />
-            <span className={styles.hint}>
+            <span id="passphrase-hint" className={styles.hint}>
               Keys without a passphrase are stored in plain text and auto-unlock on startup
             </span>
           </div>
@@ -330,8 +335,10 @@ export function KeysPanel({
             return (
               <div key={key.name} className={`${styles.keyCard} ${isExpanded ? styles.expanded : ''}`}>
                 <button
+                  type="button"
                   className={styles.keyHeader}
                   onClick={() => handleExpand(key.name)}
+                  aria-expanded={isExpanded}
                 >
                   <div className={styles.keyMain}>
                     <span className={`${styles.activityDot} ${isActive ? styles.active : ''}`} />
@@ -381,6 +388,7 @@ export function KeysPanel({
                             value={unlockPassphrase}
                             onChange={(e) => setUnlockPassphrase(e.target.value)}
                             placeholder="Enter passphrase"
+                            aria-label="Passphrase to unlock key"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 handleUnlock(key.name);
@@ -388,6 +396,7 @@ export function KeysPanel({
                             }}
                           />
                           <button
+                            type="button"
                             className={styles.unlockButton}
                             onClick={() => handleUnlock(key.name)}
                             disabled={unlocking || !unlockPassphrase.trim()}
@@ -406,6 +415,7 @@ export function KeysPanel({
                               <code className={styles.detailValue}>{key.npub}</code>
                               <div className={styles.detailActions}>
                                 <button
+                                  type="button"
                                   className={styles.actionButton}
                                   onClick={() => copyToClipboard(key.npub!, `npub-${key.name}`)}
                                 >
@@ -413,6 +423,7 @@ export function KeysPanel({
                                   {copiedField === `npub-${key.name}` ? 'Copied' : 'Copy'}
                                 </button>
                                 <button
+                                  type="button"
                                   className={styles.actionButton}
                                   onClick={() => setQrModal({ value: key.npub!, title: 'Public Key' })}
                                 >
@@ -433,6 +444,7 @@ export function KeysPanel({
                               </code>
                               <div className={styles.detailActions}>
                                 <button
+                                  type="button"
                                   className={styles.actionButton}
                                   onClick={() => copyToClipboard(key.bunkerUri!, `bunker-${key.name}`)}
                                 >
@@ -440,6 +452,7 @@ export function KeysPanel({
                                   {copiedField === `bunker-${key.name}` ? 'Copied' : 'Copy'}
                                 </button>
                                 <button
+                                  type="button"
                                   className={styles.actionButton}
                                   onClick={() => setQrModal({ value: key.bunkerUri!, title: 'Bunker URI' })}
                                 >
@@ -465,6 +478,7 @@ export function KeysPanel({
                                   value={newPassphrase}
                                   onChange={(e) => setNewPassphrase(e.target.value)}
                                   placeholder="New passphrase"
+                                  aria-label="New passphrase"
                                   autoFocus
                                 />
                                 <input
@@ -473,6 +487,9 @@ export function KeysPanel({
                                   value={confirmPassphrase}
                                   onChange={(e) => setConfirmPassphrase(e.target.value)}
                                   placeholder="Confirm passphrase"
+                                  aria-label="Confirm passphrase"
+                                  aria-describedby={newPassphrase && confirmPassphrase && newPassphrase !== confirmPassphrase ? 'passphrase-mismatch-error' : undefined}
+                                  aria-invalid={newPassphrase && confirmPassphrase && newPassphrase !== confirmPassphrase ? true : undefined}
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter' && newPassphrase && newPassphrase === confirmPassphrase) {
                                       handleSetPassphrase();
@@ -483,10 +500,11 @@ export function KeysPanel({
                                   }}
                                 />
                                 {newPassphrase && confirmPassphrase && newPassphrase !== confirmPassphrase && (
-                                  <span className={styles.passphraseMismatch}>Passphrases do not match</span>
+                                  <span id="passphrase-mismatch-error" className={styles.passphraseMismatch} role="alert">Passphrases do not match</span>
                                 )}
                                 <div className={styles.setPassphraseActions}>
                                   <button
+                                    type="button"
                                     className={styles.saveButton}
                                     onClick={handleSetPassphrase}
                                     disabled={settingPassphrase || !newPassphrase.trim() || newPassphrase !== confirmPassphrase}
@@ -494,6 +512,7 @@ export function KeysPanel({
                                     {settingPassphrase ? 'Saving...' : 'Set Passphrase'}
                                   </button>
                                   <button
+                                    type="button"
                                     className={styles.cancelButton}
                                     onClick={cancelSetPassphrase}
                                   >
@@ -505,6 +524,7 @@ export function KeysPanel({
                               <div className={styles.securityWarning}>
                                 <p>This key is stored unencrypted. Anyone with access to the config file can read it.</p>
                                 <button
+                                  type="button"
                                   className={styles.setPassphraseButton}
                                   onClick={() => startSetPassphrase(key)}
                                 >
@@ -553,6 +573,7 @@ export function KeysPanel({
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
                             placeholder="New key name"
+                            aria-label="New key name"
                             autoFocus
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') handleRename();
@@ -560,6 +581,7 @@ export function KeysPanel({
                             }}
                           />
                           <button
+                            type="button"
                             className={styles.saveButton}
                             onClick={handleRename}
                             disabled={renaming || !editName.trim() || editName.trim() === key.name}
@@ -567,6 +589,7 @@ export function KeysPanel({
                             {renaming ? 'Saving...' : 'Save'}
                           </button>
                           <button
+                            type="button"
                             className={styles.cancelButton}
                             onClick={cancelRename}
                           >
@@ -576,6 +599,7 @@ export function KeysPanel({
                       ) : (
                         <>
                           <button
+                            type="button"
                             className={styles.renameButton}
                             onClick={() => startRename(key)}
                           >
@@ -583,6 +607,7 @@ export function KeysPanel({
                             Rename
                           </button>
                           <button
+                            type="button"
                             className={styles.deleteButton}
                             onClick={() => handleDeleteClick(key)}
                           >

@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM node:20-slim AS build
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
@@ -12,7 +12,7 @@ RUN pnpm build
 WORKDIR /app/apps/signet-ui
 RUN pnpm build
 
-FROM node:20-alpine AS runtime
+FROM node:20-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/apps/signet-ui/dist ./dist

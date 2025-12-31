@@ -3,6 +3,7 @@ import type { RelayStatusResponse } from '@signet/types';
 import type { ConnectionManager } from '../../connection-manager.js';
 import type { RelayService } from '../../services/index.js';
 import type { NostrConfig } from '../../../config/types.js';
+import type { PreHandlerAuth } from '../types.js';
 
 export interface ConnectionRouteConfig {
     connectionManager: ConnectionManager;
@@ -13,7 +14,7 @@ export interface ConnectionRouteConfig {
 export function registerConnectionRoutes(
     fastify: FastifyInstance,
     config: ConnectionRouteConfig,
-    preHandler: any[]
+    preHandler: PreHandlerAuth
 ): void {
     fastify.get('/connection', { preHandler }, async (_request: FastifyRequest, reply: FastifyReply) => {
         await config.connectionManager.waitUntilReady();
