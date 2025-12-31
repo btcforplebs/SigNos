@@ -1,7 +1,8 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { FocusTrap } from 'focus-trap-react';
 import type { DisplayRequest } from '@signet/types';
-import { getKindLabel, getKindDescription, isKindSensitive } from '@signet/types';
+import { getKindLabel, getKindDescription, isKindSensitive, getMethodLabel } from '@signet/types';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { getMethodInfo, getPermissionRisk } from '../../lib/event-labels.js';
 import { copyToClipboard } from '../../lib/clipboard.js';
 import { CopyIcon, CloseIcon } from '../shared/Icons.js';
@@ -29,6 +30,7 @@ export function RequestDetailsModal({
   onClose,
 }: RequestDetailsModalProps) {
   const [copied, setCopied] = useState(false);
+  const [showRawJson, setShowRawJson] = useState(false);
 
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.key === 'Escape') {
@@ -140,7 +142,7 @@ export function RequestDetailsModal({
             <div className={styles.titleRow}>
               <Icon size={20} className={styles.methodIcon} aria-hidden="true" />
               <h2 id="request-details-title" className={styles.title}>
-                {request.method}
+                {getMethodLabel(request.method, request.eventPreview?.kind)}
               </h2>
               <span className={`${styles.riskBadge} ${riskInfo.className}`}>
                 {riskInfo.label}
@@ -232,19 +234,31 @@ export function RequestDetailsModal({
 
             {rawJson && (
               <section className={styles.section}>
-                <div className={styles.rawJsonHeader}>
+                <button
+                  type="button"
+                  className={styles.rawJsonToggle}
+                  onClick={() => setShowRawJson(!showRawJson)}
+                  aria-expanded={showRawJson}
+                >
+                  {showRawJson ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                   <h3 className={styles.sectionTitle}>Raw JSON</h3>
-                  <button
-                    type="button"
-                    className={styles.copyButton}
-                    onClick={handleCopy}
-                    aria-label="Copy JSON to clipboard"
-                  >
-                    <CopyIcon size={14} />
-                    {copied ? 'Copied!' : 'Copy'}
-                  </button>
-                </div>
-                <pre className={styles.jsonPre}>{rawJson}</pre>
+                </button>
+                {showRawJson && (
+                  <>
+                    <div className={styles.rawJsonActions}>
+                      <button
+                        type="button"
+                        className={styles.copyButton}
+                        onClick={handleCopy}
+                        aria-label="Copy JSON to clipboard"
+                      >
+                        <CopyIcon size={14} />
+                        {copied ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                    <pre className={styles.jsonPre}>{rawJson}</pre>
+                  </>
+                )}
               </section>
             )}
           </div>

@@ -17,6 +17,7 @@ export interface ActivityEntry {
     timestamp: string;
     type: string;
     method?: string;
+    eventKind?: number;
     keyName?: string;
     userPubkey?: string;
     appName?: string;

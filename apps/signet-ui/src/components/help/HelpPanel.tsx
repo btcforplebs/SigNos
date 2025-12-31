@@ -89,7 +89,10 @@ export function HelpPanel() {
               <dd>You manually approve every single request. Most secure, but requires constant attention.</dd>
 
               <dt>Auto-approve Safe</dt>
-              <dd>Common, low-risk actions (like reactions and replies) are auto-approved. You're asked for sensitive operations.</dd>
+              <dd>
+                Auto-approves low-risk actions: notes, replies, reactions, reposts, long-form articles, zaps, and list updates.
+                Still requires approval for: profile changes, follow list, event deletion, relay list, legacy DMs (NIP-04), wallet operations, and unknown event kinds.
+              </dd>
 
               <dt>Auto-approve All</dt>
               <dd>Everything is auto-approved. Only use this for apps you fully trust.</dd>

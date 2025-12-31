@@ -1,4 +1,8 @@
 import { defineConfig } from 'prisma/config';
+import { homedir } from 'os';
+import { join } from 'path';
+
+const defaultDbPath = join(homedir(), '.signet-config', 'signet.db');
 
 export default defineConfig({
     schema: 'prisma/schema.prisma',
@@ -6,6 +10,6 @@ export default defineConfig({
         path: 'prisma/migrations',
     },
     datasource: {
-        url: process.env.DATABASE_URL ?? 'file:./config/signet.db',
+        url: process.env.DATABASE_URL ?? `file:${defaultDbPath}`,
     },
 });

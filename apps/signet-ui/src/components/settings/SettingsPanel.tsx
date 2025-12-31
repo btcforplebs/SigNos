@@ -1,6 +1,10 @@
 import React from 'react';
+import type { TrustLevel } from '@signet/types';
 import { useSettings } from '../../contexts/SettingsContext.js';
+import { getTrustLevelInfo } from '../../lib/event-labels.js';
 import styles from './SettingsPanel.module.css';
+
+const TRUST_LEVELS: TrustLevel[] = ['paranoid', 'reasonable', 'full'];
 
 type NotificationPermissionState = 'default' | 'granted' | 'denied' | 'unsupported';
 
@@ -8,13 +12,6 @@ interface SettingsPanelProps {
   notificationPermission: NotificationPermissionState;
   onRequestNotificationPermission: () => void;
 }
-
-const REFRESH_OPTIONS = [
-  { value: 15, label: '15 seconds' },
-  { value: 30, label: '30 seconds' },
-  { value: 60, label: '1 minute' },
-  { value: 120, label: '2 minutes' },
-];
 
 export function SettingsPanel({
   notificationPermission,
@@ -27,48 +24,34 @@ export function SettingsPanel({
       <h2 className={styles.title}>Settings</h2>
 
       <div className={styles.section}>
-        <h3 className={styles.sectionTitle}>Auto-Refresh</h3>
+        <h3 className={styles.sectionTitle}>Default Trust Level</h3>
+        <p className={styles.sectionDescription}>
+          Pre-selected trust level when approving new app connections.
+          You can still change this per-request.
+        </p>
 
-        <div className={styles.setting}>
-          <div className={styles.settingInfo}>
-            <span className={styles.settingLabel}>Enable auto-refresh</span>
-            <span className={styles.settingDescription}>
-              Automatically fetch new requests and updates
-            </span>
-          </div>
-          <label className={styles.toggle}>
-            <input
-              type="checkbox"
-              checked={settings.autoRefresh}
-              onChange={(e) => updateSettings({ autoRefresh: e.target.checked })}
-              aria-label="Enable auto-refresh"
-            />
-            <span className={styles.toggleSlider} />
-          </label>
+        <div className={styles.trustLevelOptions}>
+          {TRUST_LEVELS.map((level) => {
+            const info = getTrustLevelInfo(level);
+            return (
+              <label key={level} className={styles.trustLevelOption}>
+                <input
+                  type="radio"
+                  name="defaultTrustLevel"
+                  value={level}
+                  checked={settings.defaultTrustLevel === level}
+                  onChange={() => updateSettings({ defaultTrustLevel: level })}
+                  className={styles.trustLevelRadio}
+                />
+                <span className={`${styles.trustLevelLabel} ${styles[level]}`}>
+                  <info.Icon size={16} aria-hidden="true" />
+                  <span className={styles.trustLevelName}>{info.label}</span>
+                </span>
+                <span className={styles.trustLevelDescription}>{info.description}</span>
+              </label>
+            );
+          })}
         </div>
-
-        {settings.autoRefresh && (
-          <div className={styles.setting}>
-            <div className={styles.settingInfo}>
-              <span className={styles.settingLabel}>Refresh interval</span>
-              <span className={styles.settingDescription}>
-                How often to check for updates
-              </span>
-            </div>
-            <select
-              className={styles.select}
-              value={settings.refreshInterval}
-              onChange={(e) => updateSettings({ refreshInterval: Number(e.target.value) })}
-              aria-label="Refresh interval"
-            >
-              {REFRESH_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
       </div>
 
       <div className={styles.section}>

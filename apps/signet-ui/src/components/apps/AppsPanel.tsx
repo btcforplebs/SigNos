@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { ConnectedApp, TrustLevel, MethodBreakdown } from '@signet/types';
-import { toNpub } from '../../lib/formatters.js';
+import { parseConnectPermissions, formatPermission } from '@signet/types';
+import { toNpub, formatLastActive, isActiveRecently } from '../../lib/formatters.js';
 import { getPermissionRisk, getTrustLevelInfo } from '../../lib/event-labels.js';
 import { LoadingSpinner } from '../shared/LoadingSpinner.js';
 import { ConfirmDialog } from '../shared/ConfirmDialog.js';
@@ -19,12 +20,12 @@ const METHOD_COLORS: Record<keyof MethodBreakdown, string> = {
 };
 
 const METHOD_LABELS: Record<keyof MethodBreakdown, string> = {
-  sign_event: 'Sign',
-  nip04_encrypt: 'Encrypt',
-  nip04_decrypt: 'Decrypt',
-  nip44_encrypt: 'Encrypt (44)',
-  nip44_decrypt: 'Decrypt (44)',
-  get_public_key: 'Pubkey',
+  sign_event: 'Signed',
+  nip04_encrypt: 'Legacy DM sent',
+  nip04_decrypt: 'Legacy DM read',
+  nip44_encrypt: 'Encrypted',
+  nip44_decrypt: 'Decrypted',
+  get_public_key: 'Identity',
   other: 'Other',
 };
 
@@ -59,31 +60,6 @@ function MethodBreakdownBar({ breakdown }: { breakdown: MethodBreakdown }) {
       </div>
     </div>
   );
-}
-
-function formatLastActive(date: string | null): string {
-  if (!date) return 'Never used';
-
-  const diff = Date.now() - new Date(date).getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-  const weeks = Math.floor(days / 7);
-
-  if (minutes < 60) return 'Active today';
-  if (hours < 24) return 'Active today';
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return `${days} days ago`;
-  if (weeks === 1) return '1 week ago';
-  if (weeks < 4) return `${weeks} weeks ago`;
-  return new Date(date).toLocaleDateString();
-}
-
-function isActiveRecently(date: string | null): boolean {
-  if (!date) return false;
-  const diff = Date.now() - new Date(date).getTime();
-  const hours = diff / (1000 * 60 * 60);
-  return hours < 24;
 }
 
 type SortOption = 'recent' | 'requests' | 'name';
@@ -312,9 +288,11 @@ export function AppsPanel({
                       <div className={styles.permissions}>
                         {app.permissions.map((perm, i) => {
                           const risk = getPermissionRisk(perm);
+                          const parsed = parseConnectPermissions(perm)[0];
+                          const label = parsed ? formatPermission(parsed) : perm;
                           return (
                             <span key={i} className={`${styles.permission} ${styles[risk]}`}>
-                              {perm}
+                              {label}
                             </span>
                           );
                         })}

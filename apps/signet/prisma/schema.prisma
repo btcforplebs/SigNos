@@ -75,6 +75,8 @@ model Log {
   params       String?
   keyUserId    Int?
   autoApproved Boolean  @default(false)
+  keyName      String?  // Direct storage for denials (no KeyUser)
+  remotePubkey String?  // Direct storage for denials (no KeyUser)
   KeyUser      KeyUser? @relation(fields: [keyUserId], references: [id])
 
   @@index([timestamp])

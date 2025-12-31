@@ -318,6 +318,9 @@ export class KeyService {
         // Update in-memory structures
         this.config.allKeys[keyName] = encrypted;
         // Key stays active in memory until daemon restart
+
+        // Emit event for real-time updates
+        getEventService().emitKeyUpdated(keyName);
     }
 
     async renameKey(oldName: string, newName: string): Promise<void> {
@@ -354,6 +357,9 @@ export class KeyService {
 
         // Update database references
         await keyRepository.renameKey(oldName, newName);
+
+        // Emit event for real-time updates
+        getEventService().emitKeyRenamed(oldName, newName);
     }
 
     async deleteKey(keyName: string, passphrase?: string): Promise<{ revokedApps: number }> {

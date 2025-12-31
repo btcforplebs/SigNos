@@ -46,6 +46,12 @@ export function useDashboard(): UseDashboardResult {
 
   // Subscribe to SSE events for real-time stats updates
   const handleSSEEvent = useCallback((event: ServerEvent) => {
+    // Refresh data on reconnection to ensure consistency
+    if (event.type === 'reconnected') {
+      refresh();
+      return;
+    }
+
     // Handle stats updates
     setStats(prev => {
       if (!prev) return prev;
@@ -74,6 +80,11 @@ export function useDashboard(): UseDashboardResult {
             ...prev,
             connectedApps: prev.connectedApps + 1,
           };
+        case 'app:revoked':
+          return {
+            ...prev,
+            connectedApps: Math.max(0, prev.connectedApps - 1),
+          };
         case 'stats:updated':
           return event.stats;
         default:
@@ -85,7 +96,7 @@ export function useDashboard(): UseDashboardResult {
     if (event.type === 'request:auto_approved') {
       setActivity(prev => [event.activity, ...prev].slice(0, 20));
     }
-  }, []);
+  }, [refresh]);
 
   useSSESubscription(handleSSEEvent);
 

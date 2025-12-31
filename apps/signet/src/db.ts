@@ -1,14 +1,15 @@
 import { existsSync, mkdirSync } from 'fs';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
+import { homedir } from 'os';
 import { PrismaClient } from '@prisma/client';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 
-const DEFAULT_DB_PATH = './config/signet.db';
+const DEFAULT_DB_PATH = join(homedir(), '.signet-config', 'signet.db');
 
 /**
  * Normalize DATABASE_URL to a file path.
  * - Strips 'file:' prefix if present
- * - Uses default path (./config/signet.db) if not specified
+ * - Uses default path (~/.signet-config/signet.db) if not specified
  * - In Docker: normalizes ~/.signet-config paths to /app/config
  * - In local dev (SIGNET_LOCAL=1): uses path as-is
  */

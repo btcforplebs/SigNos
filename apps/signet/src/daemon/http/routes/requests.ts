@@ -85,6 +85,20 @@ export function registerRequestRoutes(
             },
         });
 
+        // Log the denial (no KeyUser created for denied apps)
+        if (record.keyName) {
+            await prisma.log.create({
+                data: {
+                    timestamp: new Date(),
+                    type: 'denial',
+                    method: record.method,
+                    params: record.params,
+                    keyName: record.keyName,
+                    remotePubkey: record.remotePubkey,
+                },
+            });
+        }
+
         getEventService().emitRequestDenied(id);
 
         return reply.send({ ok: true });
@@ -160,28 +174,32 @@ export function registerRequestRoutes(
                     // If alwaysAllow is false, we only approve this single request
                 }
 
-                // Log the approval
+                // Log the approval - always create KeyUser if needed
                 if (record.keyName && record.remotePubkey) {
-                    const keyUser = await prisma.keyUser.findUnique({
+                    const keyUser = await prisma.keyUser.upsert({
                         where: {
                             unique_key_user: {
                                 keyName: record.keyName,
                                 userPubkey: record.remotePubkey,
                             },
                         },
+                        update: { lastUsedAt: new Date() },
+                        create: {
+                            keyName: record.keyName,
+                            userPubkey: record.remotePubkey,
+                            // trustLevel defaults to "reasonable" in schema
+                        },
                     });
 
-                    if (keyUser) {
-                        await prisma.log.create({
-                            data: {
-                                timestamp: new Date(),
-                                type: 'approval',
-                                method: record.method,
-                                params: record.params,
-                                keyUserId: keyUser.id,
-                            },
-                        });
-                    }
+                    await prisma.log.create({
+                        data: {
+                            timestamp: new Date(),
+                            type: 'approval',
+                            method: record.method,
+                            params: record.params,
+                            keyUserId: keyUser.id,
+                        },
+                    });
                 }
 
                 results.push({ id, success: true });

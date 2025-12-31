@@ -1,15 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import type { TrustLevel } from '@signet/types';
 
 export interface UserSettings {
-  autoRefresh: boolean;
-  refreshInterval: number; // in seconds
   notificationsEnabled: boolean;
+  defaultTrustLevel: TrustLevel;
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
-  autoRefresh: true,
-  refreshInterval: 30,
   notificationsEnabled: false,
+  defaultTrustLevel: 'reasonable',
 };
 
 const STORAGE_KEY = 'signet_settings';
@@ -30,9 +29,8 @@ function loadSettings(): UserSettings {
   try {
     const parsed = JSON.parse(saved);
     return {
-      autoRefresh: parsed.autoRefresh ?? DEFAULT_SETTINGS.autoRefresh,
-      refreshInterval: parsed.refreshInterval ?? DEFAULT_SETTINGS.refreshInterval,
       notificationsEnabled: parsed.notificationsEnabled ?? DEFAULT_SETTINGS.notificationsEnabled,
+      defaultTrustLevel: parsed.defaultTrustLevel ?? DEFAULT_SETTINGS.defaultTrustLevel,
     };
   } catch {
     return DEFAULT_SETTINGS;

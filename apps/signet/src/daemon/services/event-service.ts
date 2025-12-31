@@ -13,9 +13,13 @@ export type ServerEvent =
     | { type: 'request:expired'; requestId: string }
     | { type: 'request:auto_approved'; activity: ActivityEntry }
     | { type: 'app:connected'; app: ConnectedApp }
+    | { type: 'app:revoked'; appId: number }
+    | { type: 'app:updated'; app: ConnectedApp }
     | { type: 'key:created'; key: KeyInfo }
     | { type: 'key:unlocked'; keyName: string }
     | { type: 'key:deleted'; keyName: string }
+    | { type: 'key:renamed'; oldName: string; newName: string }
+    | { type: 'key:updated'; keyName: string }
     | { type: 'stats:updated'; stats: DashboardStats }
     | { type: 'relays:updated'; relays: RelayStatusResponse }
     | { type: 'ping' };
@@ -137,6 +141,34 @@ export class EventService {
      */
     emitRequestAutoApproved(activity: ActivityEntry): void {
         this.emit({ type: 'request:auto_approved', activity });
+    }
+
+    /**
+     * Emit an app:revoked event
+     */
+    emitAppRevoked(appId: number): void {
+        this.emit({ type: 'app:revoked', appId });
+    }
+
+    /**
+     * Emit an app:updated event
+     */
+    emitAppUpdated(app: ConnectedApp): void {
+        this.emit({ type: 'app:updated', app });
+    }
+
+    /**
+     * Emit a key:renamed event
+     */
+    emitKeyRenamed(oldName: string, newName: string): void {
+        this.emit({ type: 'key:renamed', oldName, newName });
+    }
+
+    /**
+     * Emit a key:updated event (e.g., passphrase set)
+     */
+    emitKeyUpdated(keyName: string): void {
+        this.emit({ type: 'key:updated', keyName });
     }
 }
 

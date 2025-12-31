@@ -69,6 +69,9 @@ export async function processRequestWebHandler(
         // Get allowKind for kind-specific permissions (optional)
         const allowKind = typeof request.body?.allowKind === 'number' ? request.body.allowKind : undefined;
 
+        // Get app name for connect requests (optional)
+        const appName = typeof request.body?.appName === 'string' ? request.body.appName.trim() : undefined;
+
         await prisma.request.update({
             where: { id: record.id },
             data: {
@@ -87,7 +90,7 @@ export async function processRequestWebHandler(
                     record.remotePubkey,
                     record.keyName,
                     trustLevel,
-                    undefined // description can be added later
+                    appName || undefined
                 );
 
                 // Emit app:connected event for real-time updates

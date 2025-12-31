@@ -34,12 +34,18 @@ export function useRelays(): UseRelaysResult {
 
   // Subscribe to SSE events for real-time relay status updates
   const handleEvent = useCallback((event: ServerEvent) => {
+    // Refresh data on reconnection to ensure consistency
+    if (event.type === 'reconnected') {
+      refresh();
+      return;
+    }
+
     if (event.type === 'relays:updated') {
       setRelays(event.relays);
       setError(null);
       setLoading(false);
     }
-  }, []);
+  }, [refresh]);
 
   useSSESubscription(handleEvent);
 

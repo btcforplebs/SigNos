@@ -1,6 +1,6 @@
 import prisma from '../../db.js';
 
-export type RequestStatus = 'pending' | 'approved' | 'expired';
+export type RequestStatus = 'all' | 'pending' | 'approved' | 'denied' | 'expired';
 
 export interface RequestQueryOptions {
     status: RequestStatus;
@@ -52,19 +52,36 @@ export class RequestRepository {
         const expiryThreshold = new Date(now.getTime() - this.REQUEST_TTL_MS);
 
         let where: any;
-        if (options.status === 'approved') {
-            where = { allowed: true };
-        } else if (options.status === 'expired') {
-            where = {
-                allowed: null,
-                createdAt: { lt: expiryThreshold },
-            };
-        } else {
-            // pending
-            where = {
-                allowed: null,
-                createdAt: { gte: expiryThreshold },
-            };
+        switch (options.status) {
+            case 'pending':
+                where = {
+                    allowed: null,
+                    createdAt: { gte: expiryThreshold },
+                };
+                break;
+            case 'approved':
+                where = { allowed: true };
+                break;
+            case 'denied':
+                where = { allowed: false };
+                break;
+            case 'expired':
+                where = {
+                    allowed: null,
+                    createdAt: { lt: expiryThreshold },
+                };
+                break;
+            case 'all':
+            default:
+                // All processed requests (approved, denied, or expired) - excluding pending
+                where = {
+                    OR: [
+                        { allowed: true },
+                        { allowed: false },
+                        { allowed: null, createdAt: { lt: expiryThreshold } },
+                    ],
+                };
+                break;
         }
 
         return prisma.request.findMany({

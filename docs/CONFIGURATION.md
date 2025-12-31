@@ -1,6 +1,6 @@
 # Signet Configuration
 
-All runtime settings live in `signet.json`. When running via Docker, the file is mounted at `~/.signet-config/signet.json`. Locally it defaults to `apps/signet/config/signet.json` unless you pass `--config`.
+All runtime settings live in `signet.json`, located at `~/.signet-config/signet.json` by default. You can override this with `--config /path/to/signet.json`.
 
 On first boot, Signet auto-generates this file with secure defaults (including all required secrets). You only need to edit it to customize relays, CORS origins, or other settings.
 
@@ -152,9 +152,7 @@ SIGNET_PORT=3001 UI_PORT=8080 EXTERNAL_URL=https://signet.example.com docker com
 | `SIGNET_PORT` | Port for the REST API | `3000` |
 | `SIGNET_HOST` | Host binding for the REST API | `0.0.0.0` |
 | `EXTERNAL_URL` | Public URL of the UI (for authorization flow) | `http://localhost:4174` |
-| `DATABASE_URL` | SQLite database path | `file:/app/config/signet.db` (Docker) |
-
-> **Note:** For local development without Docker, `DATABASE_URL` defaults to `file:./config/signet.db` (relative to `apps/signet/`).
+| `DATABASE_URL` | SQLite database path | `file:~/.signet-config/signet.db` |
 
 ### UI Variables (`signet-ui`)
 

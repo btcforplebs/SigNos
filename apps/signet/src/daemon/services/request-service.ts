@@ -29,7 +29,7 @@ export class RequestService {
     }
 
     async listRequests(params: RequestQueryParams): Promise<PendingRequest[]> {
-        const status = (params.status || 'pending') as RequestStatus;
+        const status = (params.status || 'all') as RequestStatus;
         const limit = Math.min(50, Math.max(1, params.limit ?? 10));
         const offset = Math.max(0, params.offset ?? 0);
 
@@ -59,9 +59,10 @@ export class RequestService {
         let eventPreview: PendingRequest['eventPreview'] = null;
         if (record.method === 'sign_event' && record.params) {
             try {
-                const params = JSON.parse(record.params);
-                if (Array.isArray(params) && params[0]) {
-                    const event = params[0];
+                const parsed = JSON.parse(record.params);
+                // Handle both formats: [event] array or event object directly
+                const event = Array.isArray(parsed) ? parsed[0] : parsed;
+                if (event && typeof event.kind === 'number') {
                     eventPreview = {
                         kind: event.kind,
                         content: event.content,
@@ -87,6 +88,7 @@ export class RequestService {
             processedAt: record.processedAt?.toISOString() ?? null,
             autoApproved: record.autoApproved,
             appName: record.KeyUser?.description ?? null,
+            allowed: record.allowed,
         };
     }
 }

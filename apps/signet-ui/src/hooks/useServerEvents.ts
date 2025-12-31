@@ -6,15 +6,20 @@ import type { PendingRequest, ConnectedApp, DashboardStats, KeyInfo, RelayStatus
  */
 export type ServerEvent =
   | { type: 'connected' }
+  | { type: 'reconnected' }
   | { type: 'request:created'; request: PendingRequest }
   | { type: 'request:approved'; requestId: string }
   | { type: 'request:denied'; requestId: string }
   | { type: 'request:expired'; requestId: string }
   | { type: 'request:auto_approved'; activity: ActivityEntry }
   | { type: 'app:connected'; app: ConnectedApp }
+  | { type: 'app:revoked'; appId: number }
+  | { type: 'app:updated'; app: ConnectedApp }
   | { type: 'key:created'; key: KeyInfo }
   | { type: 'key:unlocked'; keyName: string }
   | { type: 'key:deleted'; keyName: string }
+  | { type: 'key:renamed'; oldName: string; newName: string }
+  | { type: 'key:updated'; keyName: string }
   | { type: 'stats:updated'; stats: DashboardStats }
   | { type: 'relays:updated'; relays: RelayStatusResponse }
   | { type: 'ping' };
@@ -35,6 +40,8 @@ export interface UseServerEventsResult {
 
 const MAX_RECONNECT_DELAY = 30000; // 30 seconds
 const INITIAL_RECONNECT_DELAY = 1000; // 1 second
+const HEARTBEAT_TIMEOUT = 45000; // Expect server ping within 45 seconds
+const HEARTBEAT_CHECK_INTERVAL = 10000; // Check every 10 seconds
 
 function getApiBase(): string {
   const envBase = import.meta.env.VITE_DAEMON_API_URL ?? import.meta.env.VITE_BUNKER_API_URL;
@@ -55,6 +62,9 @@ export function useServerEvents(options: UseServerEventsOptions = {}): UseServer
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastEventTimeRef = useRef<number>(Date.now());
+  const hasConnectedBeforeRef = useRef(false);
   const onEventRef = useRef(onEvent);
 
   // Keep the callback ref up to date
@@ -79,14 +89,24 @@ export function useServerEvents(options: UseServerEventsOptions = {}): UseServer
       eventSourceRef.current = eventSource;
 
       eventSource.onopen = () => {
+        const isReconnection = hasConnectedBeforeRef.current;
+        hasConnectedBeforeRef.current = true;
+
         setConnected(true);
         setError(null);
         setReconnecting(false);
         reconnectDelayRef.current = INITIAL_RECONNECT_DELAY;
+        lastEventTimeRef.current = Date.now();
         setConnectionCount(c => c + 1);
+
+        // Emit reconnected event so subscribers can refresh their state
+        if (isReconnection && onEventRef.current) {
+          onEventRef.current({ type: 'reconnected' });
+        }
       };
 
       eventSource.onmessage = (event) => {
+        lastEventTimeRef.current = Date.now();
         try {
           const data = JSON.parse(event.data) as ServerEvent;
           if (onEventRef.current) {
@@ -103,6 +123,13 @@ export function useServerEvents(options: UseServerEventsOptions = {}): UseServer
         // EventSource automatically tries to reconnect, but we want more control
         eventSource.close();
         eventSourceRef.current = null;
+
+        // Don't reconnect if we're offline
+        if (!navigator.onLine) {
+          setError('Network offline');
+          setReconnecting(false);
+          return;
+        }
 
         // Exponential backoff for reconnect
         setReconnecting(true);
@@ -137,6 +164,7 @@ export function useServerEvents(options: UseServerEventsOptions = {}): UseServer
     setReconnecting(false);
   }, []);
 
+  // Main connection effect
   useEffect(() => {
     if (enabled) {
       connect();
@@ -146,6 +174,71 @@ export function useServerEvents(options: UseServerEventsOptions = {}): UseServer
 
     return () => {
       disconnect();
+    };
+  }, [enabled, connect, disconnect]);
+
+  // Heartbeat monitoring - detect stale connections
+  useEffect(() => {
+    if (!enabled) return;
+
+    heartbeatIntervalRef.current = setInterval(() => {
+      if (connected && Date.now() - lastEventTimeRef.current > HEARTBEAT_TIMEOUT) {
+        console.warn('SSE heartbeat timeout, reconnecting...');
+        connect();
+      }
+    }, HEARTBEAT_CHECK_INTERVAL);
+
+    return () => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+        heartbeatIntervalRef.current = null;
+      }
+    };
+  }, [enabled, connected, connect]);
+
+  // Page visibility handling - reconnect when tab becomes visible
+  useEffect(() => {
+    if (!enabled) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Reset last event time to avoid immediate timeout
+        lastEventTimeRef.current = Date.now();
+
+        if (!connected && !reconnecting) {
+          console.log('Tab visible, reconnecting SSE...');
+          connect();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [enabled, connected, reconnecting, connect]);
+
+  // Network status awareness
+  useEffect(() => {
+    if (!enabled) return;
+
+    const handleOnline = () => {
+      console.log('Network online, reconnecting SSE...');
+      setError(null);
+      reconnectDelayRef.current = INITIAL_RECONNECT_DELAY;
+      connect();
+    };
+
+    const handleOffline = () => {
+      console.log('Network offline');
+      disconnect();
+      setError('Network offline');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, [enabled, connect, disconnect]);
 

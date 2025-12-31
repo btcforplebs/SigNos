@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import type { DisplayRequest, RequestMeta, TrustLevel } from '@signet/types';
-import { getKindLabel, getTrustLevelBehavior, parseConnectPermissions, formatPermission } from '@signet/types';
+import { getKindLabel, getMethodLabel, getTrustLevelBehavior, parseConnectPermissions, formatPermission } from '@signet/types';
 import { getMethodInfo, getTrustLevelInfo } from '../../lib/event-labels.js';
 import { formatTtl, truncateContent } from '../../lib/formatters.js';
+import { useSettings } from '../../contexts/SettingsContext.js';
 import styles from './RequestCard.module.css';
 
 interface RequestCardProps {
@@ -28,7 +29,8 @@ export function RequestCard({
   onSelect,
   onViewDetails,
 }: RequestCardProps) {
-  const [selectedTrustLevel, setSelectedTrustLevel] = useState<TrustLevel>('reasonable');
+  const { settings } = useSettings();
+  const [selectedTrustLevel, setSelectedTrustLevel] = useState<TrustLevel>(settings.defaultTrustLevel);
   const [alwaysAllow, setAlwaysAllow] = useState(false);
 
   const { Icon: MethodIcon, category } = getMethodInfo(request.method);
@@ -40,7 +42,6 @@ export function RequestCard({
 
   // For completed events, show event kind inline
   const eventKind = request.eventPreview?.kind;
-  const eventKindLabel = eventKind !== undefined ? getKindLabel(eventKind) : null;
   const showCompact = !isPending;
 
   // Parse requested permissions from connect params
@@ -76,8 +77,7 @@ export function RequestCard({
             <MethodIcon size={16} />
           </span>
           <span className={styles.methodName}>
-            {request.method}
-            {eventKindLabel && <span className={styles.eventKindInline}>({eventKindLabel})</span>}
+            {getMethodLabel(request.method, eventKind)}
           </span>
         </div>
         <div className={styles.headerRight}>
@@ -92,6 +92,9 @@ export function RequestCard({
               <span className={request.autoApproved ? styles.autoApproved : styles.approved}>
                 {request.autoApproved ? 'Auto Approved' : 'Approved'}
               </span>
+            )}
+            {request.state === 'denied' && (
+              <span className={styles.denied}>Denied</span>
             )}
           </div>
           <button

@@ -8,6 +8,8 @@ export interface LogEntry {
     params: string | null;
     keyUserId: number | null;
     autoApproved: boolean;
+    keyName: string | null;
+    remotePubkey: string | null;
     KeyUser?: {
         keyName: string;
         userPubkey: string;
@@ -20,6 +22,7 @@ export interface ActivityEntry {
     timestamp: string;
     type: string;
     method?: string;
+    eventKind?: number;
     keyName?: string;
     userPubkey?: string;
     appName?: string;
@@ -33,6 +36,8 @@ export class LogRepository {
         params?: string;
         keyUserId?: number;
         autoApproved?: boolean;
+        keyName?: string;
+        remotePubkey?: string;
     }): Promise<LogEntry> {
         return prisma.log.create({
             data: {
@@ -42,6 +47,8 @@ export class LogRepository {
                 params: data.params,
                 keyUserId: data.keyUserId,
                 autoApproved: data.autoApproved ?? false,
+                keyName: data.keyName,
+                remotePubkey: data.remotePubkey,
             },
         });
     }
@@ -87,13 +94,29 @@ export class LogRepository {
     }
 
     toActivityEntry(log: LogEntry): ActivityEntry {
+        // Extract event kind from params for sign_event
+        let eventKind: number | undefined;
+        if (log.method === 'sign_event' && log.params) {
+            try {
+                const parsed = JSON.parse(log.params);
+                // params could be [event] array or just event object
+                const event = Array.isArray(parsed) ? parsed[0] : parsed;
+                if (typeof event?.kind === 'number') {
+                    eventKind = event.kind;
+                }
+            } catch {
+                // Ignore parse errors
+            }
+        }
+
         return {
             id: log.id,
             timestamp: log.timestamp.toISOString(),
             type: log.type,
             method: log.method ?? undefined,
-            keyName: log.KeyUser?.keyName ?? undefined,
-            userPubkey: log.KeyUser?.userPubkey ?? undefined,
+            eventKind,
+            keyName: log.KeyUser?.keyName ?? log.keyName ?? undefined,
+            userPubkey: log.KeyUser?.userPubkey ?? log.remotePubkey ?? undefined,
             appName: log.KeyUser?.description ?? undefined,
             autoApproved: log.autoApproved,
         };

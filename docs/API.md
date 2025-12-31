@@ -131,7 +131,7 @@ List authorization requests.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `status` | string | `pending` | Filter by status: `pending`, `approved`, `expired` |
+| `status` | string | `all` | Filter by status: `all`, `approved`, `denied`, `expired` |
 | `limit` | number | 10 | Max results (1-50) |
 | `offset` | number | 0 | Pagination offset |
 
@@ -156,11 +156,18 @@ List authorization requests.
       "requiresPassword": false,
       "processedAt": null,
       "autoApproved": false,
-      "appName": "Primal"
+      "appName": "Primal",
+      "allowed": true
     }
   ]
 }
 ```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `allowed` | boolean \| null | `true` = approved, `false` = denied, `null` = pending/expired |
 
 ---
 
@@ -524,6 +531,13 @@ Get dashboard statistics and recent activity.
 }
 ```
 
+**Activity Entry Types:**
+
+| Type | Description |
+|------|-------------|
+| `approval` | Request was approved (manual or auto) |
+| `denial` | Request was denied |
+
 ---
 
 ### Events (SSE)
@@ -555,12 +569,16 @@ eventSource.onmessage = (event) => {
 | `request:expired` | Request expired | `{ requestId: string }` |
 | `request:auto_approved` | Request auto-approved via trust level | `{ activity: ActivityEntry }` |
 | `app:connected` | New app connected | `{ app: ConnectedApp }` |
+| `app:revoked` | App access was revoked | `{ appId: number }` |
+| `app:updated` | App description or trust level changed | `{ app: ConnectedApp }` |
 | `key:created` | Key was created | `{ key: KeyInfo }` |
 | `key:unlocked` | Key was unlocked | `{ keyName: string }` |
 | `key:deleted` | Key was deleted | `{ keyName: string }` |
+| `key:renamed` | Key was renamed | `{ oldName: string, newName: string }` |
+| `key:updated` | Key encryption status changed | `{ keyName: string }` |
 | `stats:updated` | Dashboard stats changed | `{ stats: DashboardStats }` |
 | `relays:updated` | Relay connection status changed | `{ relays: RelayStatusResponse }` |
-| `ping` | Keep-alive (every 30s) | n/a (comment line) |
+| `ping` | Keep-alive (every 15s) | n/a (comment line) |
 
 ---
 

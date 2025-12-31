@@ -28,6 +28,10 @@
   border-left-color: var(--success);
 }
 
+.card.denied {
+  border-left-color: var(--danger);
+}
+
 /* Header */
 .header {
   display: flex;
@@ -123,6 +127,10 @@
 
 .autoApproved {
   color: var(--accent);
+}
+
+.denied {
+  color: var(--danger);
 }
 
 /* Details section */

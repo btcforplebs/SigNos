@@ -190,6 +190,83 @@
   text-decoration: underline;
 }
 
+/* Section Description */
+.sectionDescription {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-4) 0;
+  line-height: var(--leading-relaxed);
+}
+
+/* Trust Level Options */
+.trustLevelOptions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.trustLevelOption {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.trustLevelOption:hover {
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+
+.trustLevelOption:has(input:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.trustLevelRadio {
+  grid-row: span 2;
+  align-self: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.trustLevelLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+}
+
+.trustLevelLabel.paranoid {
+  color: var(--warning);
+}
+
+.trustLevelLabel.reasonable {
+  color: var(--success);
+}
+
+.trustLevelLabel.full {
+  color: var(--accent);
+}
+
+.trustLevelName {
+  font-size: var(--text-sm);
+}
+
+.trustLevelDescription {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  grid-column: 2;
+}
+
 /* Mobile */
 @media (max-width: 640px) {
   .setting {

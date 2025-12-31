@@ -5,6 +5,8 @@
 ### Added
 - App names displayed throughout UI instead of truncated npubs
 - Auto-approved requests now logged and visible in Activity feed
+- All NIP-46 events (sign_event, nip04/nip44 encrypt/decrypt) now appear in Activity
+- Denied requests tracked and visible in Activity feed with dedicated Denied tab
 - Real-time updates via Server-Sent Events
 - Batch approval for multiple pending requests
 - Search and filtering for requests and apps
@@ -14,23 +16,31 @@
 - NIP-04 encryption support for legacy clients
 - Added DEPLOYMENT.md to document how to run Signet behind Tailscale
 - Added dashboard and help page screenshots
+- SSE events for app revoke/update and key rename/passphrase changes
+- SSE connection reliability: heartbeat monitoring, page visibility handling, network status awareness, automatic state refresh on reconnection
+- Default trust level setting for new app connections
 
 ### Changed
 - Complete UI redesign with dark theme and sidebar navigation
 - WCAG 2.1 AA accessibility compliance
 - Connect flow now always requires manual approval with trust level selection
 - Simplified trust level labels: "Always Ask", "Auto-approve Safe", "Auto-approve All"
+- User-friendly method labels throughout UI (e.g., "Sign a note" instead of "sign_event")
+- Activity page tabs reorganized: "All" (default), "Approved", "Denied", "Expired" (removed "Pending" since Home handles it)
 - Switched Docker images from node:20-alpine to node:20-slim to avoid building better-sqlite3 from source on image rebuids.
 - Updated all documentation to reflect current state of backend and frontend
+- SSE keep-alive interval reduced from 30s to 15s for better proxy compatibility
 
 ### Removed
 - OAuth account creation flow
 - NDK dependency (replaced with nostr-tools)
+- Auto-refresh settings (SSE handles all real-time updates)
 
 ### Fixed
 - Relay subscriptions now recover after system sleep/wake
 - Pending count excludes expired requests
 - Various race conditions and error handling improvements
+- All approved requests now logged to Activity (not just trust-level auto-approvals)
 
 ### Security
 - JWT authentication required for all sensitive endpoints

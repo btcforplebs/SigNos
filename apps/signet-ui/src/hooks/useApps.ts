@@ -46,6 +46,12 @@ export function useApps(): UseAppsResult {
 
     // Subscribe to SSE events for real-time updates
     const handleSSEEvent = useCallback((event: ServerEvent) => {
+        // Refresh data on reconnection to ensure consistency
+        if (event.type === 'reconnected') {
+            refresh();
+            return;
+        }
+
         if (event.type === 'app:connected') {
             // Add new app to the list (or replace if already exists)
             setApps(prev => {
@@ -56,8 +62,16 @@ export function useApps(): UseAppsResult {
                 // Add new app at the beginning (most recent)
                 return [event.app, ...prev];
             });
+        } else if (event.type === 'app:revoked') {
+            // Remove the revoked app from the list
+            setApps(prev => prev.filter(app => app.id !== event.appId));
+        } else if (event.type === 'app:updated') {
+            // Update the app in the list
+            setApps(prev => prev.map(app =>
+                app.id === event.app.id ? event.app : app
+            ));
         }
-    }, []);
+    }, [refresh]);
 
     useSSESubscription(handleSSEEvent);
 

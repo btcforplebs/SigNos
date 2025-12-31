@@ -53,8 +53,9 @@ function groupRequestsByDate(requests: DisplayRequest[]): Map<DateGroup, Display
 }
 
 const FILTER_TABS: Array<{ id: RequestFilter; label: string }> = [
-  { id: 'pending', label: 'Pending' },
+  { id: 'all', label: 'All' },
   { id: 'approved', label: 'Approved' },
+  { id: 'denied', label: 'Denied' },
   { id: 'expired', label: 'Expired' },
 ];
 
@@ -154,7 +155,6 @@ export function RequestsPanel({
     return result;
   }, [requests, keyFilter, appFilter]);
 
-  const pendingRequests = filteredRequests.filter(r => r.state === 'pending');
   const groupedRequests = useMemo(() => groupRequestsByDate(filteredRequests), [filteredRequests]);
 
   return (
@@ -175,42 +175,6 @@ export function RequestsPanel({
           ))}
         </div>
 
-        {filter === 'pending' && pendingRequests.length > 0 && (
-          <div className={styles.bulkActions}>
-            <button
-              type="button"
-              className={styles.selectionButton}
-              onClick={onToggleSelectionMode}
-            >
-              {selectionMode ? 'Cancel' : 'Select'}
-            </button>
-
-            {selectionMode && (
-              <>
-                <button type="button" className={styles.selectAllButton} onClick={onSelectAll}>
-                  Select All
-                </button>
-                {selectedIds.size > 0 && (
-                  <>
-                    <button type="button" className={styles.deselectButton} onClick={onDeselectAll}>
-                      Deselect
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.bulkApproveButton}
-                      onClick={onBulkApprove}
-                      disabled={bulkApproving}
-                    >
-                      {bulkApproving
-                        ? 'Approving...'
-                        : `Approve ${selectedIds.size}`}
-                    </button>
-                  </>
-                )}
-              </>
-            )}
-          </div>
-        )}
       </div>
 
       <div className={styles.searchSortRow}>
@@ -226,6 +190,7 @@ export function RequestsPanel({
           />
           {searchQuery && (
             <button
+              type="button"
               className={styles.clearSearch}
               onClick={() => onSearchChange('')}
               aria-label="Clear search"
@@ -292,7 +257,7 @@ export function RequestsPanel({
           <span className={styles.emptyIcon} aria-hidden="true">
             <RequestsIcon size={48} />
           </span>
-          <span>No {filter} requests</span>
+          <span>No {filter === 'all' ? '' : filter + ' '}activity</span>
         </div>
       ) : (
         <div className={styles.list}>

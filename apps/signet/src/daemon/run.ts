@@ -27,8 +27,8 @@ const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 const REQUEST_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 const LOG_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-// Rate limiting for auto-approval logging: 1 log per method per minute per app
-const AUTO_APPROVAL_LOG_INTERVAL_MS = 60 * 1000; // 1 minute
+// Rate limiting for auto-approval logging: 1 log per method per 5 seconds per app
+const AUTO_APPROVAL_LOG_INTERVAL_MS = 5 * 1000; // 5 seconds
 const autoApprovalLogTimestamps = new Map<string, number>();
 
 function shouldLogAutoApproval(keyUserId: number, method: string): boolean {
@@ -65,11 +65,12 @@ function buildAuthorizationCallback(
                 `[${keyName}] Access ${result.permitted ? accessType : 'denied'} via ACL for ${humanPubkey}`
             );
 
-            // Log auto-approved requests (with rate limiting)
-            if (result.permitted && result.autoApproved && result.keyUserId) {
+            // Log all permitted requests (with rate limiting)
+            // This includes both trust-level auto-approvals and explicit permission grants
+            if (result.permitted && result.keyUserId) {
                 if (shouldLogAutoApproval(result.keyUserId, method)) {
                     // Log asynchronously to avoid blocking
-                    logAutoApproval(result.keyUserId, method, primaryParam, keyName, id, pubkey).catch(err => {
+                    logAutoApproval(result.keyUserId, method, primaryParam, keyName, id, pubkey, result.autoApproved).catch(err => {
                         console.error('Failed to log auto-approval:', err);
                     });
                 }
@@ -95,7 +96,8 @@ async function logAutoApproval(
     params: string | undefined,
     keyName: string,
     requestId: string,
-    remotePubkey: string
+    remotePubkey: string,
+    autoApproved: boolean
 ): Promise<void> {
     // Fetch KeyUser info for the activity entry
     const keyUser = await prisma.keyUser.findUnique({
@@ -104,6 +106,20 @@ async function logAutoApproval(
     });
 
     const paramsStr = typeof params === 'string' ? params : JSON.stringify(params);
+
+    // Extract event kind for sign_event
+    let eventKind: number | undefined;
+    if (method === 'sign_event' && paramsStr) {
+        try {
+            const parsed = JSON.parse(paramsStr);
+            const event = Array.isArray(parsed) ? parsed[0] : parsed;
+            if (event && typeof event.kind === 'number') {
+                eventKind = event.kind;
+            }
+        } catch {
+            // Ignore parse errors
+        }
+    }
 
     // Create request record (so it appears in Activity page)
     await requestRepository.createAutoApproved({
@@ -121,7 +137,7 @@ async function logAutoApproval(
         method,
         params: paramsStr,
         keyUserId,
-        autoApproved: true,
+        autoApproved,
     });
 
     // Emit SSE event
@@ -131,10 +147,11 @@ async function logAutoApproval(
         timestamp: log.timestamp.toISOString(),
         type: log.type,
         method: log.method ?? undefined,
+        eventKind,
         keyName,
         userPubkey: keyUser?.userPubkey,
         appName: keyUser?.description ?? undefined,
-        autoApproved: true,
+        autoApproved,
     });
 }
 

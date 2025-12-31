@@ -4,10 +4,9 @@ import { LoadingSpinner } from '../shared/LoadingSpinner.js';
 import { ConfirmDialog } from '../shared/ConfirmDialog.js';
 import { QRModal } from '../shared/QRModal.js';
 import { PageHeader } from '../shared/PageHeader.js';
-import { Key, ChevronDown, ChevronRight, Copy, QrCode, Lock, Unlock, Trash2, Users, Pencil, Shield } from 'lucide-react';
-import { formatRelativeTime, toNpub } from '../../lib/formatters.js';
-import { getTrustLevelInfo } from '../../lib/event-labels.js';
-import { copyToClipboard as copyText } from '../../lib/clipboard.js';
+import { Key } from 'lucide-react';
+import { CreateKeyForm } from './CreateKeyForm.js';
+import { KeyCard } from './KeyCard.js';
 import styles from './KeysPanel.module.css';
 
 interface KeysPanelProps {
@@ -26,13 +25,6 @@ interface KeysPanelProps {
   onRenameKey: (keyName: string, newName: string) => Promise<boolean>;
   onSetPassphrase: (keyName: string, passphrase: string) => Promise<boolean>;
   onClearError: () => void;
-}
-
-function isActiveRecently(date: string | null): boolean {
-  if (!date) return false;
-  const diff = Date.now() - new Date(date).getTime();
-  const hours = diff / (1000 * 60 * 60);
-  return hours < 24;
 }
 
 export function KeysPanel({
@@ -54,132 +46,27 @@ export function KeysPanel({
 }: KeysPanelProps) {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [keyName, setKeyName] = useState('');
-  const [passphrase, setPassphrase] = useState('');
-  const [nsec, setNsec] = useState('');
-  const [createMode, setCreateMode] = useState<'generate' | 'import'>('generate');
-
-  // Unlock state
-  const [unlockPassphrase, setUnlockPassphrase] = useState('');
-
-  // Rename state
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
-
-  // Set passphrase state
-  const [settingPassphraseKey, setSettingPassphraseKey] = useState<string | null>(null);
-  const [newPassphrase, setNewPassphrase] = useState('');
-  const [confirmPassphrase, setConfirmPassphrase] = useState('');
-
-  // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<KeyInfo | null>(null);
   const [deletePassphrase, setDeletePassphrase] = useState('');
-
-  // QR modal state
   const [qrModal, setQrModal] = useState<{ value: string; title: string } | null>(null);
-
-  // Clipboard feedback
-  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const now = useMemo(() => Date.now(), [keys]);
 
-  // Get apps for a specific key
   const getAppsForKey = (keyName: string): ConnectedApp[] => {
     return apps.filter(app => app.keyName === keyName);
   };
 
-  const handleExpand = (name: string) => {
-    if (expandedKey === name) {
-      setExpandedKey(null);
-    } else {
-      setExpandedKey(name);
-      setUnlockPassphrase('');
-      setEditingKey(null);
-      setEditName('');
-      setSettingPassphraseKey(null);
-      setNewPassphrase('');
-      setConfirmPassphrase('');
-      onClearError();
-    }
-  };
-
-  const startSetPassphrase = (key: KeyInfo) => {
-    setSettingPassphraseKey(key.name);
-    setNewPassphrase('');
-    setConfirmPassphrase('');
-    onClearError();
-  };
-
-  const cancelSetPassphrase = () => {
-    setSettingPassphraseKey(null);
-    setNewPassphrase('');
-    setConfirmPassphrase('');
-  };
-
-  const handleSetPassphrase = async () => {
-    if (!settingPassphraseKey || !newPassphrase.trim()) return;
-
-    if (newPassphrase !== confirmPassphrase) {
-      return; // Button should be disabled, but just in case
-    }
-
-    const success = await onSetPassphrase(settingPassphraseKey, newPassphrase);
-    if (success) {
-      setSettingPassphraseKey(null);
-      setNewPassphrase('');
-      setConfirmPassphrase('');
-    }
-  };
-
-  const startRename = (key: KeyInfo) => {
-    setEditingKey(key.name);
-    setEditName(key.name);
-    onClearError();
-  };
-
-  const cancelRename = () => {
-    setEditingKey(null);
-    setEditName('');
-  };
-
-  const handleRename = async () => {
-    if (!editingKey || !editName.trim()) return;
-
-    const success = await onRenameKey(editingKey, editName.trim());
-    if (success) {
-      // Update expandedKey to follow the renamed key
-      setExpandedKey(editName.trim());
-      setEditingKey(null);
-      setEditName('');
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const result = await onCreateKey({
-      keyName: keyName.trim(),
-      passphrase: passphrase.trim() || undefined,
-      nsec: createMode === 'import' ? nsec.trim() : undefined,
-    });
-
-    if (result) {
-      setShowCreateForm(false);
-      setKeyName('');
-      setPassphrase('');
-      setNsec('');
-    }
-  };
-
-  const copyToClipboard = async (text: string, field: string) => {
-    const success = await copyText(text);
-    if (success) {
-      setCopiedField(field);
-      setTimeout(() => setCopiedField(null), 2000);
-    }
-  };
-
   const isKeyEncrypted = (key: KeyInfo): boolean => {
     return key.status === 'locked';
+  };
+
+  const handleCreateKey = async (data: { keyName: string; passphrase?: string; nsec?: string }): Promise<boolean> => {
+    const result = await onCreateKey(data);
+    if (result) {
+      setShowCreateForm(false);
+      return true;
+    }
+    return false;
   };
 
   const handleDeleteClick = (key: KeyInfo) => {
@@ -214,13 +101,16 @@ export function KeysPanel({
     onClearError();
   };
 
-  const handleUnlock = async (keyName: string) => {
-    if (!unlockPassphrase.trim()) return;
+  const handleToggleExpand = (keyName: string) => {
+    setExpandedKey(expandedKey === keyName ? null : keyName);
+  };
 
-    const success = await onUnlockKey(keyName, unlockPassphrase);
+  const handleRename = async (keyName: string, newName: string): Promise<boolean> => {
+    const success = await onRenameKey(keyName, newName);
     if (success) {
-      setUnlockPassphrase('');
+      setExpandedKey(newName);
     }
+    return success;
   };
 
   if (loading && keys.length === 0) {
@@ -249,72 +139,11 @@ export function KeysPanel({
       {error && <div className={styles.error}>{error}</div>}
 
       {showCreateForm && (
-        <form className={styles.createForm} onSubmit={handleSubmit}>
-          <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="keyName">Key Name</label>
-            <input
-              id="keyName"
-              type="text"
-              value={keyName}
-              onChange={(e) => setKeyName(e.target.value)}
-              placeholder="e.g., main-key"
-              className={styles.input}
-              required
-            />
-          </div>
-
-          <div className={styles.modeSelector}>
-            <button
-              type="button"
-              className={`${styles.modeButton} ${createMode === 'generate' ? styles.active : ''}`}
-              onClick={() => setCreateMode('generate')}
-            >
-              Generate New
-            </button>
-            <button
-              type="button"
-              className={`${styles.modeButton} ${createMode === 'import' ? styles.active : ''}`}
-              onClick={() => setCreateMode('import')}
-            >
-              Import Existing
-            </button>
-          </div>
-
-          {createMode === 'import' && (
-            <div className={styles.formGroup}>
-              <label className={styles.label} htmlFor="nsec">Private Key (nsec)</label>
-              <input
-                id="nsec"
-                type="password"
-                value={nsec}
-                onChange={(e) => setNsec(e.target.value)}
-                placeholder="nsec1..."
-                className={styles.input}
-                required
-              />
-            </div>
-          )}
-
-          <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="passphrase">Encryption Passphrase (optional)</label>
-            <input
-              id="passphrase"
-              type="password"
-              value={passphrase}
-              onChange={(e) => setPassphrase(e.target.value)}
-              placeholder="Leave empty for unencrypted storage"
-              className={styles.input}
-              aria-describedby="passphrase-hint"
-            />
-            <span id="passphrase-hint" className={styles.hint}>
-              Keys without a passphrase are stored in plain text and auto-unlock on startup
-            </span>
-          </div>
-
-          <button type="submit" className={styles.submitButton} disabled={creating}>
-            {creating ? 'Creating...' : createMode === 'generate' ? 'Generate Key' : 'Import Key'}
-          </button>
-        </form>
+        <CreateKeyForm
+          creating={creating}
+          onSubmit={handleCreateKey}
+          onCancel={() => setShowCreateForm(false)}
+        />
       )}
 
       {keys.length === 0 ? (
@@ -327,301 +156,25 @@ export function KeysPanel({
         </div>
       ) : (
         <div className={styles.keyList}>
-          {keys.map(key => {
-            const isExpanded = expandedKey === key.name;
-            const isActive = isActiveRecently(key.lastUsedAt);
-            const keyApps = getAppsForKey(key.name);
-
-            return (
-              <div key={key.name} className={`${styles.keyCard} ${isExpanded ? styles.expanded : ''}`}>
-                <button
-                  type="button"
-                  className={styles.keyHeader}
-                  onClick={() => handleExpand(key.name)}
-                  aria-expanded={isExpanded}
-                >
-                  <div className={styles.keyMain}>
-                    <span className={`${styles.activityDot} ${isActive ? styles.active : ''}`} />
-                    <span className={styles.keyName}>{key.name}</span>
-                    <span className={`${styles.status} ${styles[key.status]}`}>
-                      {key.status === 'locked' && <Lock size={12} />}
-                      {key.status}
-                    </span>
-                  </div>
-                  <div className={styles.keyMeta}>
-                    {key.npub && (
-                      <span className={styles.npubPreview}>
-                        {key.npub.slice(0, 12)}...
-                      </span>
-                    )}
-                    <span className={styles.dot}>•</span>
-                    <span>{key.userCount} app{key.userCount !== 1 ? 's' : ''}</span>
-                    <span className={styles.dot}>•</span>
-                    <span>{key.requestCount} request{key.requestCount !== 1 ? 's' : ''}</span>
-                    {key.lastUsedAt && (
-                      <>
-                        <span className={styles.dot}>•</span>
-                        <span>{formatRelativeTime(key.lastUsedAt, now)}</span>
-                      </>
-                    )}
-                  </div>
-                  <span className={styles.expandIcon}>
-                    {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                  </span>
-                </button>
-
-                {isExpanded && (
-                  <div className={styles.keyDetails}>
-                    {key.status === 'locked' ? (
-                      <div className={styles.unlockSection}>
-                        <div className={styles.unlockHeader}>
-                          <Lock size={20} />
-                          <span>Key is Locked</span>
-                        </div>
-                        <p className={styles.unlockHint}>
-                          Enter passphrase to unlock and start signing
-                        </p>
-                        <div className={styles.unlockForm}>
-                          <input
-                            type="password"
-                            className={styles.input}
-                            value={unlockPassphrase}
-                            onChange={(e) => setUnlockPassphrase(e.target.value)}
-                            placeholder="Enter passphrase"
-                            aria-label="Passphrase to unlock key"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                handleUnlock(key.name);
-                              }
-                            }}
-                          />
-                          <button
-                            type="button"
-                            className={styles.unlockButton}
-                            onClick={() => handleUnlock(key.name)}
-                            disabled={unlocking || !unlockPassphrase.trim()}
-                          >
-                            <Unlock size={16} />
-                            {unlocking ? 'Unlocking...' : 'Unlock'}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        {key.npub && (
-                          <div className={styles.detailSection}>
-                            <span className={styles.detailLabel}>Public Key</span>
-                            <div className={styles.detailRow}>
-                              <code className={styles.detailValue}>{key.npub}</code>
-                              <div className={styles.detailActions}>
-                                <button
-                                  type="button"
-                                  className={styles.actionButton}
-                                  onClick={() => copyToClipboard(key.npub!, `npub-${key.name}`)}
-                                >
-                                  <Copy size={14} />
-                                  {copiedField === `npub-${key.name}` ? 'Copied' : 'Copy'}
-                                </button>
-                                <button
-                                  type="button"
-                                  className={styles.actionButton}
-                                  onClick={() => setQrModal({ value: key.npub!, title: 'Public Key' })}
-                                >
-                                  <QrCode size={14} />
-                                  QR
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {key.bunkerUri && (
-                          <div className={styles.detailSection}>
-                            <span className={styles.detailLabel}>Bunker Connection</span>
-                            <div className={styles.detailRow}>
-                              <code className={styles.detailValue}>
-                                {key.bunkerUri.slice(0, 40)}...
-                              </code>
-                              <div className={styles.detailActions}>
-                                <button
-                                  type="button"
-                                  className={styles.actionButton}
-                                  onClick={() => copyToClipboard(key.bunkerUri!, `bunker-${key.name}`)}
-                                >
-                                  <Copy size={14} />
-                                  {copiedField === `bunker-${key.name}` ? 'Copied' : 'Copy'}
-                                </button>
-                                <button
-                                  type="button"
-                                  className={styles.actionButton}
-                                  onClick={() => setQrModal({ value: key.bunkerUri!, title: 'Bunker URI' })}
-                                >
-                                  <QrCode size={14} />
-                                  QR
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {!key.isEncrypted && (
-                          <div className={styles.detailSection}>
-                            <span className={styles.detailLabel}>
-                              <Shield size={14} />
-                              Security
-                            </span>
-                            {settingPassphraseKey === key.name ? (
-                              <div className={styles.setPassphraseForm}>
-                                <input
-                                  type="password"
-                                  className={styles.input}
-                                  value={newPassphrase}
-                                  onChange={(e) => setNewPassphrase(e.target.value)}
-                                  placeholder="New passphrase"
-                                  aria-label="New passphrase"
-                                  autoFocus
-                                />
-                                <input
-                                  type="password"
-                                  className={styles.input}
-                                  value={confirmPassphrase}
-                                  onChange={(e) => setConfirmPassphrase(e.target.value)}
-                                  placeholder="Confirm passphrase"
-                                  aria-label="Confirm passphrase"
-                                  aria-describedby={newPassphrase && confirmPassphrase && newPassphrase !== confirmPassphrase ? 'passphrase-mismatch-error' : undefined}
-                                  aria-invalid={newPassphrase && confirmPassphrase && newPassphrase !== confirmPassphrase ? true : undefined}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && newPassphrase && newPassphrase === confirmPassphrase) {
-                                      handleSetPassphrase();
-                                    }
-                                    if (e.key === 'Escape') {
-                                      cancelSetPassphrase();
-                                    }
-                                  }}
-                                />
-                                {newPassphrase && confirmPassphrase && newPassphrase !== confirmPassphrase && (
-                                  <span id="passphrase-mismatch-error" className={styles.passphraseMismatch} role="alert">Passphrases do not match</span>
-                                )}
-                                <div className={styles.setPassphraseActions}>
-                                  <button
-                                    type="button"
-                                    className={styles.saveButton}
-                                    onClick={handleSetPassphrase}
-                                    disabled={settingPassphrase || !newPassphrase.trim() || newPassphrase !== confirmPassphrase}
-                                  >
-                                    {settingPassphrase ? 'Saving...' : 'Set Passphrase'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className={styles.cancelButton}
-                                    onClick={cancelSetPassphrase}
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className={styles.securityWarning}>
-                                <p>This key is stored unencrypted. Anyone with access to the config file can read it.</p>
-                                <button
-                                  type="button"
-                                  className={styles.setPassphraseButton}
-                                  onClick={() => startSetPassphrase(key)}
-                                >
-                                  <Lock size={14} />
-                                  Set Passphrase
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {keyApps.length > 0 && (
-                      <div className={styles.detailSection}>
-                        <span className={styles.detailLabel}>
-                          <Users size={14} />
-                          Connected Apps
-                        </span>
-                        <div className={styles.appsList}>
-                          {keyApps.map(app => {
-                            const trustInfo = getTrustLevelInfo(app.trustLevel);
-                            const displayName = app.description || toNpub(app.userPubkey).slice(0, 12) + '...';
-                            return (
-                              <div key={app.id} className={styles.appItem}>
-                                <span className={styles.appName}>{displayName}</span>
-                                <span className={`${styles.appTrust} ${styles[app.trustLevel]}`}>
-                                  {trustInfo.label}
-                                </span>
-                                <span className={styles.appRequests}>
-                                  {app.requestCount} req
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className={styles.actions}>
-                      {editingKey === key.name ? (
-                        <div className={styles.renameRow}>
-                          <input
-                            type="text"
-                            className={styles.input}
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            placeholder="New key name"
-                            aria-label="New key name"
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleRename();
-                              if (e.key === 'Escape') cancelRename();
-                            }}
-                          />
-                          <button
-                            type="button"
-                            className={styles.saveButton}
-                            onClick={handleRename}
-                            disabled={renaming || !editName.trim() || editName.trim() === key.name}
-                          >
-                            {renaming ? 'Saving...' : 'Save'}
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.cancelButton}
-                            onClick={cancelRename}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            className={styles.renameButton}
-                            onClick={() => startRename(key)}
-                          >
-                            <Pencil size={16} />
-                            Rename
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.deleteButton}
-                            onClick={() => handleDeleteClick(key)}
-                          >
-                            <Trash2 size={16} />
-                            Delete Key
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {keys.map(key => (
+            <KeyCard
+              key={key.name}
+              keyInfo={key}
+              apps={getAppsForKey(key.name)}
+              expanded={expandedKey === key.name}
+              now={now}
+              unlocking={unlocking}
+              renaming={renaming}
+              settingPassphrase={settingPassphrase}
+              onToggleExpand={() => handleToggleExpand(key.name)}
+              onUnlock={(passphrase) => onUnlockKey(key.name, passphrase)}
+              onRename={(newName) => handleRename(key.name, newName)}
+              onSetPassphrase={(passphrase) => onSetPassphrase(key.name, passphrase)}
+              onDelete={() => handleDeleteClick(key)}
+              onShowQR={(value, title) => setQrModal({ value, title })}
+              onClearError={onClearError}
+            />
+          ))}
         </div>
       )}
 

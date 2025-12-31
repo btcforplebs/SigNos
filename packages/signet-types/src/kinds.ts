@@ -219,6 +219,137 @@ export function isKindSensitive(kind: number): boolean {
 }
 
 /**
+ * User-friendly labels for NIP-46 methods.
+ */
+export const METHOD_LABELS: Record<string, string> = {
+  connect: 'Connect app',
+  sign_event: 'Sign event',
+  get_public_key: 'Share your identity',
+  nip04_encrypt: 'Send legacy DM',
+  nip04_decrypt: 'Read legacy DM',
+  nip44_encrypt: 'Send encrypted message',
+  nip44_decrypt: 'Read encrypted message',
+  ping: 'Ping',
+};
+
+/**
+ * Context-aware labels for sign_event based on kind.
+ */
+const SIGN_KIND_LABELS: Record<number, string> = {
+  0: 'Update your profile',
+  1: 'Sign a note',
+  3: 'Update your follows',
+  4: 'Send a legacy DM',
+  5: 'Delete an event',
+  6: 'Sign a repost',
+  7: 'Sign a reaction',
+  14: 'Send a direct message',
+  16: 'Sign a repost',
+  1059: 'Send a gift-wrapped message',
+  1111: 'Sign a comment',
+  9734: 'Send a zap',
+  9735: 'Sign a zap receipt',
+  10002: 'Update your relay list',
+  13194: 'Share wallet info',
+  23194: 'Make a wallet request',
+  23195: 'Respond to wallet request',
+  24242: 'Authorize file access',
+  30023: 'Sign an article',
+  30024: 'Save a draft article',
+};
+
+/**
+ * Get a user-friendly label for a NIP-46 method.
+ * For sign_event, optionally provide a kind for context-aware labels.
+ */
+export function getMethodLabel(method: string, kind?: number): string {
+  // Handle sign_event with kind context
+  if (method === 'sign_event' && kind !== undefined) {
+    const kindLabel = SIGN_KIND_LABELS[kind];
+    if (kindLabel) {
+      return kindLabel;
+    }
+    // Fallback: use kind name
+    const kindName = KIND_NAMES[kind];
+    if (kindName) {
+      return `Sign ${kindName.toLowerCase()}`;
+    }
+    return `Sign kind ${kind} event`;
+  }
+
+  // Use base method label or return raw method name
+  return METHOD_LABELS[method] ?? method;
+}
+
+/**
+ * Get a past-tense label for activity display.
+ * Example: "Signed a note", "Sent encrypted message"
+ */
+export function getMethodLabelPastTense(method: string, kind?: number): string {
+  // Handle sign_event with kind context
+  if (method === 'sign_event' && kind !== undefined) {
+    const kindLabel = SIGN_KIND_LABELS[kind];
+    if (kindLabel) {
+      // Convert "Sign a note" → "Signed a note", "Update your profile" → "Updated your profile"
+      if (kindLabel.startsWith('Sign ')) {
+        return kindLabel.replace('Sign ', 'Signed ');
+      }
+      if (kindLabel.startsWith('Update ')) {
+        return kindLabel.replace('Update ', 'Updated ');
+      }
+      if (kindLabel.startsWith('Send ')) {
+        return kindLabel.replace('Send ', 'Sent ');
+      }
+      if (kindLabel.startsWith('Delete ')) {
+        return kindLabel.replace('Delete ', 'Deleted ');
+      }
+      if (kindLabel.startsWith('Save ')) {
+        return kindLabel.replace('Save ', 'Saved ');
+      }
+      if (kindLabel.startsWith('Make ')) {
+        return kindLabel.replace('Make ', 'Made ');
+      }
+      if (kindLabel.startsWith('Respond ')) {
+        return kindLabel.replace('Respond ', 'Responded ');
+      }
+      if (kindLabel.startsWith('Authorize ')) {
+        return kindLabel.replace('Authorize ', 'Authorized ');
+      }
+      if (kindLabel.startsWith('Share ')) {
+        return kindLabel.replace('Share ', 'Shared ');
+      }
+      return kindLabel;
+    }
+    // Fallback
+    const kindName = KIND_NAMES[kind];
+    if (kindName) {
+      return `Signed ${kindName.toLowerCase()}`;
+    }
+    return `Signed kind ${kind} event`;
+  }
+
+  // Handle other methods
+  switch (method) {
+    case 'connect':
+      return 'Connected app';
+    case 'get_public_key':
+      return 'Shared identity';
+    case 'nip04_encrypt':
+      return 'Sent legacy DM';
+    case 'nip04_decrypt':
+      return 'Read legacy DM';
+    case 'nip44_encrypt':
+      return 'Sent encrypted message';
+    case 'nip44_decrypt':
+      return 'Read encrypted message';
+    case 'ping':
+      return 'Pinged';
+    default:
+      return method;
+  }
+}
+
+/**
  * Parse NIP-46 connect permissions string.
  * Format: "method[:kind],method[:kind],..."
  * Example: "sign_event:1,sign_event:7,nip44_encrypt"
@@ -249,22 +380,22 @@ export function parseConnectPermissions(perms: string | null | undefined): Parse
  */
 export function formatPermission(perm: ParsedPermission): string {
   if (perm.method === 'sign_event' && perm.kind !== undefined) {
-    return `Sign ${getKindName(perm.kind)}`;
+    return `Sign ${getKindName(perm.kind).toLowerCase()}`;
   }
 
   switch (perm.method) {
     case 'sign_event':
       return 'Sign events (any kind)';
     case 'nip04_encrypt':
-      return 'Encrypt messages (NIP-04)';
+      return 'Send legacy DMs';
     case 'nip04_decrypt':
-      return 'Decrypt messages (NIP-04)';
+      return 'Read legacy DMs';
     case 'nip44_encrypt':
-      return 'Encrypt messages (NIP-44)';
+      return 'Send encrypted messages';
     case 'nip44_decrypt':
-      return 'Decrypt messages (NIP-44)';
+      return 'Read encrypted messages';
     case 'get_public_key':
-      return 'Get public key';
+      return 'Share your identity';
     case 'ping':
       return 'Ping';
     default:

@@ -278,15 +278,30 @@
   word-break: break-all;
 }
 
-.rawJsonHeader {
+.rawJsonToggle {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-secondary, #9ca3af);
+  width: 100%;
 }
 
-.rawJsonHeader .sectionTitle {
+.rawJsonToggle:hover {
+  color: var(--text-primary, #f9fafb);
+}
+
+.rawJsonToggle .sectionTitle {
   margin-bottom: 0;
+}
+
+.rawJsonActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
 }
 
 .copyButton {

@@ -25,6 +25,8 @@ export interface PendingRequest {
     autoApproved: boolean;
     /** App name from KeyUser.description, if available */
     appName?: string | null;
+    /** Whether the request was allowed (true=approved, false=denied, null=pending/expired) */
+    allowed?: boolean | null;
 }
 
 /**
@@ -37,7 +39,7 @@ export interface PendingRequestWire extends Omit<PendingRequest, 'requiresPasswo
 /**
  * Filter for listing requests by status
  */
-export type RequestFilter = 'pending' | 'approved' | 'expired';
+export type RequestFilter = 'all' | 'pending' | 'approved' | 'denied' | 'expired';
 
 /**
  * Display-ready request with computed fields
@@ -50,7 +52,7 @@ export interface DisplayRequest extends PendingRequest {
     /** Human-readable creation time (e.g., "5m ago") */
     createdLabel: string;
     /** Current request state */
-    state: 'pending' | 'expired' | 'approved';
+    state: 'pending' | 'expired' | 'approved' | 'denied';
     /** When the request was approved (if applicable) */
     approvedAt?: string;
 }

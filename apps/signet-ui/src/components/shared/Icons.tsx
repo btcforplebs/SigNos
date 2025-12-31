@@ -10,6 +10,7 @@ import {
   Unlock,
   Zap,
   CheckCircle,
+  XCircle,
   PlusCircle,
   FileText,
   Copy,
@@ -44,6 +45,7 @@ export {
 
   // Activity icons
   CheckCircle as ApprovalIcon,
+  XCircle as DenialIcon,
   PlusCircle as RegistrationIcon,
   FileText as ActivityIcon,
 
@@ -95,12 +97,14 @@ export function getMethodIcon(category: MethodCategory): React.ComponentType<Luc
 }
 
 // Activity type to icon component mapping
-export type ActivityType = 'approval' | 'registration' | 'other';
+export type ActivityType = 'approval' | 'denial' | 'registration' | 'other';
 
 export function getActivityIcon(type: string): React.ComponentType<LucideProps> {
   switch (type) {
     case 'approval':
       return CheckCircle;
+    case 'denial':
+      return XCircle;
     case 'registration':
       return PlusCircle;
     default:

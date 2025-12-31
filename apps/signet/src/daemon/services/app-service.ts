@@ -2,6 +2,7 @@ import type { ConnectedApp, TrustLevel, MethodBreakdown } from '@signet/types';
 import { appRepository } from '../repositories/index.js';
 import { updateTrustLevel as updateTrustLevelAcl } from '../lib/acl.js';
 import { VALID_TRUST_LEVELS } from '../constants.js';
+import { getEventService } from './event-service.js';
 
 export class AppService {
     /**
@@ -106,6 +107,9 @@ export class AppService {
         }
 
         await appRepository.revoke(appId);
+
+        // Emit event for real-time updates
+        getEventService().emitAppRevoked(appId);
     }
 
     async updateDescription(appId: number, description: string): Promise<void> {
@@ -115,6 +119,12 @@ export class AppService {
         }
 
         await appRepository.updateDescription(appId, description);
+
+        // Emit event for real-time updates
+        const updatedApp = await this.getAppById(appId);
+        if (updatedApp) {
+            getEventService().emitAppUpdated(updatedApp);
+        }
     }
 
     async countActive(): Promise<number> {
@@ -132,6 +142,12 @@ export class AppService {
         }
 
         await updateTrustLevelAcl(appId, trustLevel);
+
+        // Emit event for real-time updates
+        const updatedApp = await this.getAppById(appId);
+        if (updatedApp) {
+            getEventService().emitAppUpdated(updatedApp);
+        }
     }
 }
 

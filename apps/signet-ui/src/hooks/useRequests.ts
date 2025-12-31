@@ -20,7 +20,7 @@ interface UseRequestsResult {
   passwords: Record<string, string>;
   setPassword: (id: string, password: string) => void;
   meta: Record<string, RequestMeta>;
-  approve: (id: string, trustLevel?: TrustLevel, alwaysAllow?: boolean, allowKind?: number) => Promise<void>;
+  approve: (id: string, trustLevel?: TrustLevel, alwaysAllow?: boolean, allowKind?: number, appName?: string) => Promise<void>;
   deny: (id: string) => Promise<void>;
   loadMore: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -46,7 +46,7 @@ export function useRequests(): UseRequestsResult {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
-  const [filter, setFilter] = useState<RequestFilter>('pending');
+  const [filter, setFilter] = useState<RequestFilter>('all');
   const [offset, setOffset] = useState(0);
   const [passwords, setPasswords] = useState<Record<string, string>>({});
   const [meta, setMeta] = useState<Record<string, RequestMeta>>({});
@@ -134,26 +134,17 @@ export function useRequests(): UseRequestsResult {
 
   // Subscribe to SSE events for real-time updates
   const handleSSEEvent = useCallback((event: ServerEvent) => {
-    // Only handle events when viewing pending requests
-    if (filter !== 'pending') return;
-
-    if (event.type === 'request:created') {
-      // Add new request at the beginning
-      setRequests(prev => [event.request, ...prev]);
-    } else if (event.type === 'request:approved' || event.type === 'request:denied') {
-      // Remove the request from the pending list
-      setRequests(prev => prev.filter(r => r.id !== event.requestId));
-      // Clean up meta state
-      setMeta(prev => {
-        const next = { ...prev };
-        delete next[event.requestId];
-        return next;
-      });
-    } else if (event.type === 'request:expired') {
-      // Remove expired request from pending list
-      setRequests(prev => prev.filter(r => r.id !== event.requestId));
+    // Refresh data on reconnection to ensure consistency
+    if (event.type === 'reconnected') {
+      refresh();
+      return;
     }
-  }, [filter]);
+
+    // Refresh when requests are created, approved, denied, or auto-approved to update the list
+    if (event.type === 'request:created' || event.type === 'request:approved' || event.type === 'request:denied' || event.type === 'request:auto_approved') {
+      refresh();
+    }
+  }, [refresh]);
 
   useSSESubscription(handleSSEEvent);
 
@@ -185,7 +176,7 @@ export function useRequests(): UseRequestsResult {
     setPasswords(prev => ({ ...prev, [id]: password }));
   }, []);
 
-  const approve = useCallback(async (id: string, trustLevel?: TrustLevel, alwaysAllow?: boolean, allowKind?: number) => {
+  const approve = useCallback(async (id: string, trustLevel?: TrustLevel, alwaysAllow?: boolean, allowKind?: number, appName?: string) => {
     const request = requests.find(r => r.id === id);
     const requiresPassword = request?.requiresPassword ?? false;
     const password = passwords[id]?.trim() ?? '';
@@ -201,7 +192,7 @@ export function useRequests(): UseRequestsResult {
     setMeta(prev => ({ ...prev, [id]: { state: 'approving' } }));
 
     try {
-      const payload: { password?: string; trustLevel?: TrustLevel; alwaysAllow?: boolean; allowKind?: number } = {};
+      const payload: { password?: string; trustLevel?: TrustLevel; alwaysAllow?: boolean; allowKind?: number; appName?: string } = {};
       if (requiresPassword) {
         payload.password = password;
       }
@@ -213,6 +204,9 @@ export function useRequests(): UseRequestsResult {
       }
       if (allowKind !== undefined) {
         payload.allowKind = allowKind;
+      }
+      if (appName) {
+        payload.appName = appName;
       }
       const result = await apiPost<{ ok?: boolean; error?: string }>(`/requests/${id}`, payload);
 
@@ -265,9 +259,11 @@ export function useRequests(): UseRequestsResult {
       : Math.max(0, request.ttlSeconds);
 
     let state: DisplayRequest['state'];
-    if (filter === 'approved' || request.processedAt) {
+    if (request.allowed === true) {
       state = 'approved';
-    } else if (filter === 'expired' || ttl === 0) {
+    } else if (request.allowed === false) {
+      state = 'denied';
+    } else if (ttl === 0) {
       state = 'expired';
     } else {
       state = 'pending';

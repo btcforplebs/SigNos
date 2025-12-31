@@ -44,8 +44,8 @@ Start the daemon:
 cd apps/signet
 pnpm run build
 pnpm run prisma:migrate
-pnpm run signet -- add --name main-key
-pnpm run signet -- start --key main-key
+pnpm run signet add --name main-key
+pnpm run signet start --key main-key
 ```
 
 Start the UI dev server:
@@ -57,9 +57,7 @@ pnpm run dev
 
 ## Configuration
 
-Config is auto-generated on first boot at:
-- Docker: `~/.signet-config/signet.json`
-- Local dev: `apps/signet/config/signet.json`
+Config is auto-generated on first boot at `~/.signet-config/signet.json`.
 
 See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for all options.
 

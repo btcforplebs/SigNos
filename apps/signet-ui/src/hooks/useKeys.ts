@@ -1,8 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { KeyInfo } from '@signet/types';
 import { apiGet, apiPost, apiPatch, apiDelete } from '../lib/api-client.js';
 import { buildErrorMessage } from '../lib/formatters.js';
 import { useMutation } from './useMutation.js';
+import { useSSESubscription } from '../contexts/ServerEventsContext.js';
+import type { ServerEvent } from './useServerEvents.js';
 
 interface DeleteKeyResult {
     ok: boolean;
@@ -45,6 +47,33 @@ export function useKeys(): UseKeysResult {
             setLoading(false);
         }
     }, []);
+
+    // Initial load
+    useEffect(() => {
+        refresh();
+    }, [refresh]);
+
+    // Subscribe to SSE events for real-time updates
+    const handleSSEEvent = useCallback((event: ServerEvent) => {
+        // Refresh data on reconnection to ensure consistency
+        if (event.type === 'reconnected') {
+            refresh();
+            return;
+        }
+
+        // Handle key events - refresh list on any key change
+        if (
+            event.type === 'key:created' ||
+            event.type === 'key:unlocked' ||
+            event.type === 'key:deleted' ||
+            event.type === 'key:renamed' ||
+            event.type === 'key:updated'
+        ) {
+            refresh();
+        }
+    }, [refresh]);
+
+    useSSESubscription(handleSSEEvent);
 
     // Create key mutation
     const createMutation = useMutation(

@@ -3,8 +3,7 @@ import type { ConnectionInfo, TrustLevel, DisplayRequest } from '@signet/types';
 import { fetchConnectionInfo } from './lib/connection.js';
 import { ToastProvider, useToast } from './contexts/ToastContext.js';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext.js';
-import { ServerEventsProvider, useServerEventsContext, useSSESubscription } from './contexts/ServerEventsContext.js';
-import type { ServerEvent } from './hooks/useServerEvents.js';
+import { ServerEventsProvider, useServerEventsContext } from './contexts/ServerEventsContext.js';
 import { AppLayout } from './components/layout/AppLayout.js';
 import type { NavItem } from './components/layout/Sidebar.js';
 import { Toast } from './components/shared/Toast.js';
@@ -36,57 +35,18 @@ function AppContent() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [selectedKeyName, setSelectedKeyName] = useState<string | null>(null);
   const [showAutoApproved, setShowAutoApproved] = useState(true);
+  const [appNames, setAppNames] = useState<Record<string, string>>({});
 
   const { showToast } = useToast();
   const { settings } = useSettings();
   const { connected: sseConnected } = useServerEventsContext();
 
-  // Hooks for data
+  // Hooks for data - each hook handles its own SSE events
   const requests = useRequests();
   const keys = useKeys();
   const apps = useApps();
   const dashboard = useDashboard();
   const relays = useRelays();
-
-  // Handle SSE events for real-time updates
-  const handleSSEEvent = useCallback((event: ServerEvent) => {
-    switch (event.type) {
-      case 'connected':
-        // SSE just connected/reconnected - refresh all data to catch any missed events
-        requests.refresh();
-        apps.refresh();
-        keys.refresh();
-        dashboard.refresh();
-        break;
-      case 'request:created':
-        requests.refresh();
-        dashboard.refresh();
-        break;
-      case 'request:approved':
-      case 'request:denied':
-      case 'request:expired':
-      case 'request:auto_approved':
-        requests.refresh();
-        dashboard.refresh();
-        break;
-      case 'app:connected':
-        apps.refresh();
-        keys.refresh();
-        dashboard.refresh();
-        break;
-      case 'key:created':
-      case 'key:unlocked':
-      case 'key:deleted':
-        keys.refresh();
-        dashboard.refresh();
-        break;
-      case 'stats:updated':
-        dashboard.refresh();
-        break;
-    }
-  }, [requests.refresh, apps.refresh, keys.refresh, dashboard.refresh]);
-
-  useSSESubscription(handleSSEEvent);
 
   // Load connection info
   useEffect(() => {
@@ -165,14 +125,26 @@ function AppContent() {
     setActiveNav('keys');
   }, []);
 
-  // Handle navigation changes - reset filter when going to Home
+  // Handle navigation changes
   const handleNavChange = useCallback((nav: NavItem) => {
     setActiveNav(nav);
-    // When navigating to Home, ensure we're viewing pending requests
-    if (nav === 'home' && requests.filter !== 'pending') {
+  }, []);
+
+  // Switch request filter based on active page
+  // Home page needs pending requests, Activity page needs processed requests
+  useEffect(() => {
+    if (activeNav === 'home') {
       requests.setFilter('pending');
+    } else if (activeNav === 'activity') {
+      // 'all' in the backend means processed (approved, denied, expired)
+      requests.setFilter('all');
     }
-  }, [requests.filter, requests.setFilter]);
+  }, [activeNav]);
+
+  // Handle app name changes for connect requests
+  const handleAppNameChange = useCallback((requestId: string, appName: string) => {
+    setAppNames(prev => ({ ...prev, [requestId]: appName }));
+  }, []);
 
   if (connectionLoading) {
     return (
@@ -194,8 +166,10 @@ function AppContent() {
             loading={requests.loading || dashboard.loading}
             relayStatus={relays.relays}
             passwords={requests.passwords}
+            appNames={appNames}
             showAutoApproved={showAutoApproved}
             onPasswordChange={requests.setPassword}
+            onAppNameChange={handleAppNameChange}
             onApprove={requests.approve}
             onDeny={requests.deny}
             onViewDetails={setDetailsModalRequest}

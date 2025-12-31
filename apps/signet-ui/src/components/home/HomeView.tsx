@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import type { DisplayRequest, DashboardStats, TrustLevel, RelayStatusResponse, ActivityEntry } from '@signet/types';
-import { Radio, Key, Smartphone, Clock, ChevronDown, ChevronRight, Check, X, Inbox, Activity } from 'lucide-react';
+import { Key } from 'lucide-react';
 import { PageHeader } from '../shared/PageHeader.js';
 import { SkeletonStatCard, SkeletonCard } from '../shared/Skeleton.js';
-import { getTrustLevelInfo } from '../../lib/event-labels.js';
+import { StatsRow } from './StatsRow.js';
+import { PendingRequestsList } from './PendingRequestsList.js';
+import { RecentActivityFeed } from './RecentActivityFeed.js';
 import styles from './HomeView.module.css';
-
-const TRUST_LEVELS: TrustLevel[] = ['paranoid', 'reasonable', 'full'];
 
 interface HomeViewProps {
   requests: DisplayRequest[];
@@ -15,9 +15,11 @@ interface HomeViewProps {
   loading: boolean;
   relayStatus: RelayStatusResponse | null;
   passwords: Record<string, string>;
+  appNames: Record<string, string>;
   showAutoApproved: boolean;
   onPasswordChange: (requestId: string, password: string) => void;
-  onApprove: (requestId: string, trustLevel?: TrustLevel) => Promise<void>;
+  onAppNameChange: (requestId: string, appName: string) => void;
+  onApprove: (requestId: string, trustLevel?: TrustLevel, alwaysAllow?: boolean, allowKind?: number, appName?: string) => Promise<void>;
   onDeny: (requestId: string) => Promise<void>;
   onViewDetails: (request: DisplayRequest) => void;
   onNavigateToActivity: () => void;
@@ -32,8 +34,10 @@ export function HomeView({
   loading,
   relayStatus,
   passwords,
+  appNames,
   showAutoApproved,
   onPasswordChange,
+  onAppNameChange,
   onApprove,
   onDeny,
   onViewDetails,
@@ -41,72 +45,6 @@ export function HomeView({
   onNavigateToKeys,
   onToggleShowAutoApproved,
 }: HomeViewProps) {
-  const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
-  const [selectedTrustLevels, setSelectedTrustLevels] = useState<Record<string, TrustLevel>>({});
-  const [removingItems, setRemovingItems] = useState<Record<string, 'approved' | 'denied'>>({});
-
-  const handleApprove = async (requestId: string, trustLevel?: TrustLevel) => {
-    // Trigger animation
-    setRemovingItems(prev => ({ ...prev, [requestId]: 'approved' }));
-    // Wait for animation
-    await new Promise(resolve => setTimeout(resolve, 300));
-    // Actually approve
-    await onApprove(requestId, trustLevel);
-    // Clean up animation state
-    setRemovingItems(prev => {
-      const next = { ...prev };
-      delete next[requestId];
-      return next;
-    });
-  };
-
-  const handleDeny = async (requestId: string) => {
-    // Trigger animation
-    setRemovingItems(prev => ({ ...prev, [requestId]: 'denied' }));
-    // Wait for animation
-    await new Promise(resolve => setTimeout(resolve, 300));
-    // Actually deny
-    await onDeny(requestId);
-    // Clean up animation state
-    setRemovingItems(prev => {
-      const next = { ...prev };
-      delete next[requestId];
-      return next;
-    });
-  };
-
-  const pendingRequests = requests.filter(r => r.state === 'pending');
-
-  const getTrustLevel = (requestId: string): TrustLevel => {
-    return selectedTrustLevels[requestId] || 'reasonable';
-  };
-
-  const setTrustLevel = (requestId: string, level: TrustLevel) => {
-    setSelectedTrustLevels(prev => ({ ...prev, [requestId]: level }));
-  };
-
-  const filteredActivity = showAutoApproved
-    ? activity
-    : activity.filter(entry => !entry.autoApproved);
-  const recentActivity = filteredActivity.slice(0, 5);
-
-  const formatTimeAgo = (timestamp: string): string => {
-    const diff = Date.now() - new Date(timestamp).getTime();
-    const minutes = Math.floor(diff / 60000);
-    if (minutes < 1) return 'just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
-  };
-
-  const getActivityIcon = (type: string) => {
-    if (type === 'approved') return <Check size={14} className={styles.activityIconApproved} />;
-    if (type === 'denied') return <X size={14} className={styles.activityIconDenied} />;
-    return <Clock size={14} className={styles.activityIconPending} />;
-  };
-
   if (loading) {
     return (
       <div className={styles.container}>
@@ -148,52 +86,7 @@ export function HomeView({
     <div className={styles.container}>
       <PageHeader title="Dashboard" />
 
-      {/* Stats Row */}
-      <section className={styles.statsSection}>
-        <div className={styles.statsGrid}>
-          <div className={styles.statCard}>
-            <div className={`${styles.statIcon} ${styles.statIconRelays}`}>
-              <Radio size={24} />
-            </div>
-            <div className={styles.statContent}>
-              <span className={styles.statValue}>
-                {relayStatus ? `${relayStatus.connected}/${relayStatus.total}` : '-'}
-              </span>
-              <span className={styles.statLabel}>Relays</span>
-            </div>
-          </div>
-
-          <div className={styles.statCard}>
-            <div className={`${styles.statIcon} ${styles.statIconKeys}`}>
-              <Key size={24} />
-            </div>
-            <div className={styles.statContent}>
-              <span className={styles.statValue}>{stats?.activeKeys ?? '-'}</span>
-              <span className={styles.statLabel}>Keys</span>
-            </div>
-          </div>
-
-          <div className={styles.statCard}>
-            <div className={`${styles.statIcon} ${styles.statIconApps}`}>
-              <Smartphone size={24} />
-            </div>
-            <div className={styles.statContent}>
-              <span className={styles.statValue}>{stats?.connectedApps ?? '-'}</span>
-              <span className={styles.statLabel}>Apps</span>
-            </div>
-          </div>
-
-          <div className={styles.statCard}>
-            <div className={`${styles.statIcon} ${styles.statIconActivity}`}>
-              <Clock size={24} />
-            </div>
-            <div className={styles.statContent}>
-              <span className={styles.statValue}>{stats?.recentActivity24h ?? '-'}</span>
-              <span className={styles.statLabel}>Last 24h</span>
-            </div>
-          </div>
-        </div>
-      </section>
+      <StatsRow stats={stats} relayStatus={relayStatus} />
 
       {/* Onboarding - show when no keys exist at all */}
       {stats?.totalKeys === 0 && (
@@ -217,161 +110,23 @@ export function HomeView({
       {/* Only show Pending and Recent when there are keys */}
       {(stats?.totalKeys ?? 0) > 0 && (
         <>
-          {/* Pending Approvals */}
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>
-              Pending
-              {pendingRequests.length > 0 && (
-                <span className={styles.badge}>{pendingRequests.length}</span>
-              )}
-            </h2>
-            {pendingRequests.length === 0 ? (
-              <div className={styles.emptyState}>
-                <span className={styles.emptyIcon}><Inbox size={18} /></span>
-                <p>No pending approvals</p>
-              </div>
-            ) : (
-              <div className={styles.listCard}>
-                {pendingRequests.map((request) => {
-                  const isExpanded = expandedRequestId === request.id;
-                  const removingState = removingItems[request.id];
-                  return (
-                    <div
-                      key={request.id}
-                      className={`${styles.listItem} ${removingState ? styles[`listItem_${removingState}`] : ''}`}
-                    >
-                      <button
-                        type="button"
-                        className={styles.listItemHeader}
-                        onClick={() => setExpandedRequestId(isExpanded ? null : request.id)}
-                        aria-expanded={isExpanded}
-                      >
-                        <span className={styles.pendingDot} />
-                        <span className={styles.listItemMethod}>{request.method}</span>
-                        <span className={styles.listItemMeta}>
-                          {request.keyName || 'Unknown'} &bull; {request.createdLabel}
-                        </span>
-                        {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                      </button>
-                      {isExpanded && (
-                        <div className={styles.listItemExpanded}>
-                          <div className={styles.listItemDetails}>
-                            <div className={styles.detailRow}>
-                              <span className={styles.detailLabel}>From:</span>
-                              <code className={styles.detailValue}>{request.npub.slice(0, 20)}...</code>
-                            </div>
-                            {request.requiresPassword && (
-                              <div className={styles.detailRow}>
-                                <span className={styles.detailLabel}>Password:</span>
-                                <input
-                                  type="password"
-                                  className={styles.passwordInput}
-                                  aria-label="Password to unlock key"
-                                  value={passwords[request.id] || ''}
-                                  onChange={(e) => onPasswordChange(request.id, e.target.value)}
-                                  placeholder="Enter key password"
-                                />
-                              </div>
-                            )}
-                            {request.method === 'connect' && (
-                              <div className={styles.trustSection}>
-                                <span className={styles.detailLabel}>Trust:</span>
-                                <div className={styles.trustOptions}>
-                                  {TRUST_LEVELS.map(level => {
-                                    const info = getTrustLevelInfo(level);
-                                    const isSelected = getTrustLevel(request.id) === level;
-                                    return (
-                                      <button
-                                        type="button"
-                                        key={level}
-                                        className={`${styles.trustOption} ${isSelected ? styles.trustOptionSelected : ''} ${styles[`trust_${level}`]}`}
-                                        onClick={() => setTrustLevel(request.id, level)}
-                                      >
-                                        <span className={styles.trustOptionLabel}>{info.label}</span>
-                                        <span className={styles.trustOptionDesc}>{info.description}</span>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          <div className={styles.listItemActions}>
-                            <button
-                              type="button"
-                              className={styles.approveButton}
-                              onClick={() => handleApprove(request.id, request.method === 'connect' ? getTrustLevel(request.id) : undefined)}
-                              disabled={!!removingState}
-                            >
-                              {removingState === 'approved' ? <Check size={16} /> : 'Approve'}
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.denyButton}
-                              onClick={() => handleDeny(request.id)}
-                              disabled={!!removingState}
-                            >
-                              {removingState === 'denied' ? <X size={16} /> : 'Deny'}
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.detailsButton}
-                              onClick={() => onViewDetails(request)}
-                            >
-                              Details
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+          <PendingRequestsList
+            requests={requests}
+            passwords={passwords}
+            appNames={appNames}
+            onPasswordChange={onPasswordChange}
+            onAppNameChange={onAppNameChange}
+            onApprove={onApprove}
+            onDeny={onDeny}
+            onViewDetails={onViewDetails}
+          />
 
-          {/* Recent Activity */}
-          <section className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>Recent</h2>
-              <label className={styles.filterToggle}>
-                <input
-                  type="checkbox"
-                  className={styles.visuallyHidden}
-                  checked={showAutoApproved}
-                  onChange={onToggleShowAutoApproved}
-                />
-                <span className={styles.checkbox} aria-hidden="true" />
-                <span>Show auto</span>
-              </label>
-            </div>
-            {recentActivity.length === 0 ? (
-              <div className={styles.emptyState}>
-                <span className={styles.emptyIcon}><Activity size={18} /></span>
-                <p>{activity.length === 0 ? 'No recent activity' : 'No manual approvals'}</p>
-              </div>
-            ) : (
-              <div className={styles.listCard}>
-                {recentActivity.map((entry) => (
-                  <div key={entry.id} className={styles.activityItem}>
-                    {getActivityIcon(entry.type)}
-                    <span className={styles.activityMethod}>{entry.method || entry.type}</span>
-                    <span className={styles.activityMeta}>
-                      {entry.appName || entry.keyName || 'Unknown'}
-                    </span>
-                    <span className={styles.activityTime}>
-                      {entry.autoApproved && <span className={styles.autoBadge}>Auto</span>}
-                      {formatTimeAgo(entry.timestamp)}
-                    </span>
-                  </div>
-                ))}
-                <button type="button" className={styles.viewAllButton} onClick={onNavigateToActivity}>
-                  View all
-                  <ChevronRight size={14} />
-                </button>
-              </div>
-            )}
-          </section>
+          <RecentActivityFeed
+            activity={activity}
+            showAutoApproved={showAutoApproved}
+            onToggleShowAutoApproved={onToggleShowAutoApproved}
+            onNavigateToActivity={onNavigateToActivity}
+          />
         </>
       )}
     </div>

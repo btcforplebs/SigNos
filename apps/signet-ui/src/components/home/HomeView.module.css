@@ -324,6 +324,22 @@
   box-shadow: 0 0 0 3px var(--accent-muted);
 }
 
+.appNameInput {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.appNameInput:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
 /* Trust Level Selector */
 .trustSection {
   margin-top: var(--space-3);
@@ -705,7 +721,8 @@
     min-height: 48px;
   }
 
-  .passwordInput {
+  .passwordInput,
+  .appNameInput {
     min-height: 44px;
     font-size: 16px;
   }
