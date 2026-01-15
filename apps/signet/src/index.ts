@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import 'websocket-polyfill';
+
 import { homedir } from 'os';
 import { join } from 'path';
 import yargs from 'yargs';
@@ -10,7 +10,7 @@ import { runStart } from './commands/start.js';
 const defaultConfigPath = join(homedir(), '.signet-config', 'signet.json');
 
 async function main() {
-    await yargs(hideBin(process.argv))
+    await yargs(process.argv.slice(2))
         .scriptName('signet')
         .option('config', {
             alias: 'c',

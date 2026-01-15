@@ -19,8 +19,59 @@ Signet separates the signing back end from the front end, and ships with a web U
   <img src="apps/signet-android/app/images/signet-android-3-settings.png" width="32%" alt="Android Settings" />
 </p>
 
-## Quick Start (Docker)
+## Desktop Screenshots
 
+<p align="center">
+  <img src="apps/signet-ui/public/icon-512x512.png" width="200" alt="Signet Desktop Icon" />
+</p>
+
+### 🍏 Mac App (Standalone)
+A native macOS application that bundles both the daemon and UI.
+
+**1. Build the components:**
+```bash
+pnpm install
+pnpm run build
+```
+
+**2. Bundle the UI server:**
+```bash
+cd apps/signet-ui
+pnpm exec tsup --config tsup.server.config.js
+```
+
+**3. Generate the DMG:**
+```bash
+cd apps/desktop
+pnpm run dist
+```
+The installer will be in `apps/desktop/dist-electron/`.
+
+## 🛡️ Security Architecture
+
+Signet is built with a defense-in-depth approach to ensure your Nostr keys remain under your control.
+
+### 1. Data Isolation
+*   **`signet.db` (Operational State)**: Stores application permissions, logs, and metadata. **This database never contains private keys.**
+*   **`signet.json` (The Vault)**: A dedicated, separate file for sensitive material. Privileged access is enforced via OS-level file permissions (`600`).
+
+### 2. Encryption at Rest
+*   **Standards**: All stored keys are encrypted using **AES-256-GCM**.
+*   **Derivation**: Passphrases are never stored; they are used to derive a temporary decryption key via standard PBKDF2.
+*   **Tamper Proof**: The GCM mode includes an authentication tag, ensuring that if the encrypted data is modified, it will fail to decrypt rather than compromising security.
+
+### 3. Key Lifecycle
+*   **Hot Keys**: Private keys only exist in **plaintext within System RAM** while they are "unlocked."
+*   **Instant Purge**: Quitting the application or manually locking a key immediately wipes the plaintext material from the active process memory.
+*   **Isolation**: The Mac App creates an isolated communication channel between the UI and your secrets that never touches the public internet.
+
+---
+
+### ⚠️ Installation Notes (Mac App)
+*   **Unsigned Binary**: Since this app is not signed with an Apple Developer certificate, macOS will block it by default. 
+*   **To Run**: After dragging to Applications, **Right-Click** the Signet icon and choose **Open**. You only need to do this once.
+
+---
 ```bash
 git clone https://github.com/Letdown2491/signet
 cd signet

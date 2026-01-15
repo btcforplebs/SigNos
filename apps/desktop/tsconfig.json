@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "es2020",
+        "outDir": "dist",
+        "sourceMap": true,
+        "strict": true,
+        "allowSyntheticDefaultImports": true,
+        "skipLibCheck": true,
+        "types": [
+            "node"
+        ],
+        "lib": [
+            "es2022"
+        ]
+    },
+    "include": [
+        "src/**/*"
+    ]
+}

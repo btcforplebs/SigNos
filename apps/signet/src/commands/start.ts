@@ -52,6 +52,7 @@ async function unlockKeyInteractively(name: string, entry: StoredKey, verbose: b
 
 function resolveDaemonEntry(cwd: string): string | undefined {
     const candidates = [
+        resolve(__dirname, 'daemon/index.js'),
         resolve(cwd, 'dist/daemon/index.js'),
         resolve(cwd, 'src/daemon/index.ts'),
     ];
@@ -102,7 +103,13 @@ export async function runStart(options: StartOptions): Promise<void> {
         process.exit(1);
     }
 
-    const daemon = fork(daemonEntry);
+    const daemon = fork(daemonEntry, [], {
+        execPath: process.execPath,
+        env: {
+            ...process.env,
+            ELECTRON_RUN_AS_NODE: '1'
+        }
+    });
     const { keys: storedKeys, killSwitch, ...restConfig } = config;
     const payload: DaemonBootstrapConfig = {
         ...restConfig,

@@ -19,7 +19,7 @@
     "url": "https://github.com/Letdown2491/signet"
   },
   "scripts": {
-    "build": "prisma generate && tsup src/index.ts; tsup src/daemon/index.ts -d dist/daemon; tsup src/client.ts -d dist/client",
+    "build": "prisma generate && tsup",
     "build:client": "tsup src/client.ts -d dist/client",
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate deploy",
@@ -46,6 +46,7 @@
     "@inquirer/prompts": "^1.2.3",
     "@prisma/adapter-better-sqlite3": "^7.2.0",
     "@prisma/client": "^7.2.0",
+    "@prisma/client-runtime-utils": "7.2.0",
     "@scure/base": "^1.2.6",
     "@signet/types": "workspace:*",
     "@types/yargs": "^17.0.33",

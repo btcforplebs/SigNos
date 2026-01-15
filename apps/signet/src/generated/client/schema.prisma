@@ -9,42 +9,42 @@ datasource db {
 }
 
 model Request {
-    id            String    @id @default(uuid())
-    keyName       String?
-    createdAt     DateTime  @default(now())
-    processedAt   DateTime?
-    requestId     String
-    remotePubkey  String
-    method        String
-    params        String?
-    allowed       Boolean?
-    autoApproved  Boolean   @default(false)
-    approvalType  String?   // 'manual' | 'auto_trust' | 'auto_permission'
-    keyUserId     Int?
-    KeyUser       KeyUser?  @relation(fields: [keyUserId], references: [id])
+  id           String    @id @default(uuid())
+  keyName      String?
+  createdAt    DateTime  @default(now())
+  processedAt  DateTime?
+  requestId    String
+  remotePubkey String
+  method       String
+  params       String?
+  allowed      Boolean?
+  autoApproved Boolean   @default(false)
+  approvalType String? // 'manual' | 'auto_trust' | 'auto_permission'
+  keyUserId    Int?
+  KeyUser      KeyUser?  @relation(fields: [keyUserId], references: [id])
 
-    @@index([allowed, createdAt])
-    @@index([remotePubkey])
-    @@index([keyUserId])
+  @@index([allowed, createdAt])
+  @@index([remotePubkey])
+  @@index([keyUserId])
 }
 
 model KeyUser {
-  id                  Int                @id @default(autoincrement())
-  keyName             String
-  userPubkey          String
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @default(now()) @updatedAt
-  revokedAt           DateTime?
-  suspendedAt         DateTime?          // When set, app is suspended and all requests are denied
-  suspendUntil        DateTime?          // If set, app auto-resumes after this time
-  lastUsedAt          DateTime?
-  description         String?
-  trustLevel          String             @default("reasonable") // 'paranoid' | 'reasonable' | 'full'
-  nostrconnectRelays  String?            // JSON array of relay URLs for nostrconnect apps (null for bunker apps)
-  logs                Log[]
-  signingConditions   SigningCondition[]
-  Token               Token[]
-  requests            Request[]
+  id                 Int                @id @default(autoincrement())
+  keyName            String
+  userPubkey         String
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @default(now()) @updatedAt
+  revokedAt          DateTime?
+  suspendedAt        DateTime? // When set, app is suspended and all requests are denied
+  suspendUntil       DateTime? // If set, app auto-resumes after this time
+  lastUsedAt         DateTime?
+  description        String?
+  trustLevel         String             @default("reasonable") // 'paranoid' | 'reasonable' | 'full'
+  nostrconnectRelays String? // JSON array of relay URLs for nostrconnect apps (null for bunker apps)
+  logs               Log[]
+  signingConditions  SigningCondition[]
+  Token              Token[]
+  requests           Request[]
 
   @@unique([keyName, userPubkey], name: "unique_key_user")
   @@index([revokedAt])
@@ -52,10 +52,10 @@ model KeyUser {
 }
 
 model Key {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   keyName   String    @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
   deletedAt DateTime?
   pubkey    String
 }
@@ -81,9 +81,9 @@ model Log {
   params       String?
   keyUserId    Int?
   autoApproved Boolean  @default(false)
-  approvalType String?  // 'manual' | 'auto_trust' | 'auto_permission'
-  keyName      String?  // Direct storage for denials (no KeyUser)
-  remotePubkey String?  // Direct storage for denials (no KeyUser)
+  approvalType String? // 'manual' | 'auto_trust' | 'auto_permission'
+  keyName      String? // Direct storage for denials (no KeyUser)
+  remotePubkey String? // Direct storage for denials (no KeyUser)
   KeyUser      KeyUser? @relation(fields: [keyUserId], references: [id])
 
   @@index([timestamp])
@@ -144,17 +144,17 @@ model ConnectionToken {
 }
 
 model AdminLog {
-  id            Int       @id @default(autoincrement())
-  timestamp     DateTime  @default(now())
-  eventType     String    // key_locked, key_unlocked, app_suspended, app_unsuspended, daemon_started, command_executed
-  keyName       String?   // For key events
-  appId         Int?      // For app events (KeyUser id)
-  appName       String?   // Denormalized for display
-  clientName    String?   // signet-ui, signet-android, kill-switch
-  clientVersion String?   // e.g., 1.3.0
-  ipAddress     String?   // Client IP address
-  command       String?   // For command_executed: the command that was sent
-  commandResult String?   // For command_executed: the result/outcome
+  id            Int      @id @default(autoincrement())
+  timestamp     DateTime @default(now())
+  eventType     String // key_locked, key_unlocked, app_suspended, app_unsuspended, daemon_started, command_executed
+  keyName       String? // For key events
+  appId         Int? // For app events (KeyUser id)
+  appName       String? // Denormalized for display
+  clientName    String? // signet-ui, signet-android, kill-switch
+  clientVersion String? // e.g., 1.3.0
+  ipAddress     String? // Client IP address
+  command       String? // For command_executed: the command that was sent
+  commandResult String? // For command_executed: the result/outcome
 
   @@index([timestamp])
   @@index([eventType])

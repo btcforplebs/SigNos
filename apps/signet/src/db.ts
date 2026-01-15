@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { homedir } from 'os';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from './generated/client';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 
 const DEFAULT_DB_PATH = join(homedir(), '.signet-config', 'signet.db');

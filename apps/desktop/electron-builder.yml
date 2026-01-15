@@ -1,0 +1,29 @@
+appId: com.signet.desktop
+productName: Signet
+directories:
+  output: dist-electron
+  buildResources: build
+files:
+  - "dist/**/*"
+  - "node_modules/**/*"
+  - "package.json"
+extraResources:
+  - from: "../signet/dist"
+    to: "daemon"
+  - from: "../signet/prisma"
+    to: "daemon/prisma"
+  - from: "../signet-ui/dist"
+    to: "ui/dist"
+  - from: "../signet-ui/dist-server"
+    to: "ui/dist-server"
+  - from: "../signet-ui/public"
+    to: "ui/public"
+asarUnpack:
+  - "**/node_modules/better-sqlite3/**/*"
+  - "**/node_modules/bcrypt/**/*"
+  - "**/*.node"
+mac:
+  target: dmg
+  icon: ../signet-ui/public/icon-512x512.png
+  hardenedRuntime: true
+  gatekeeperAssess: false
