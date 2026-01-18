@@ -31,6 +31,7 @@ import {
     initNostrconnectService,
     initDeadManSwitchService,
     type DeadManSwitchService,
+    TrustScoreService,
 } from './services/index.js';
 import { requestRepository, logRepository } from './repositories/index.js';
 import { adminLogRepository } from './repositories/admin-log-repository.js';
@@ -231,6 +232,7 @@ class Daemon {
     private readonly eventService: EventService;
     private readonly adminCommandService?: AdminCommandService;
     private readonly deadManSwitchService: DeadManSwitchService;
+    private readonly trustScoreService: TrustScoreService;
     private readonly backends: Map<string, Nip46Backend> = new Map();
     private httpServer?: HttpServer;
     private lastPoolReset: Date | null = null;
@@ -308,6 +310,9 @@ class Daemon {
             daemonVersion,
             // Warning DM callback will be set up after admin command service starts
         });
+
+        // Initialize trust score service for relay reputation
+        this.trustScoreService = new TrustScoreService(config.nostr.relays);
 
         // Initialize nostrconnect service for client-initiated connections
         const nostrconnectService = initNostrconnectService({
@@ -387,6 +392,9 @@ class Daemon {
 
         // Start dead man's switch service
         await this.deadManSwitchService.start();
+
+        // Start trust score service (fetches relay trust scores)
+        await this.trustScoreService.start();
 
         this.startCleanupTasks();
 
@@ -627,6 +635,8 @@ class Daemon {
             eventService: this.eventService,
             relayService: this.relayService,
             getHealthStatus: () => this.getHealthStatus(),
+            getTrustScore: (url) => this.trustScoreService.getScore(url),
+            getTrustScoresForRelays: (urls) => this.trustScoreService.getScoresForRelays(urls),
         });
 
         await this.httpServer.start();
@@ -651,6 +661,7 @@ class Daemon {
                 connected: s.connected,
                 lastConnected: s.lastConnected?.toISOString() ?? null,
                 lastDisconnected: s.lastDisconnected?.toISOString() ?? null,
+                trustScore: this.trustScoreService.getScore(s.url),
             })),
         });
     }

@@ -568,3 +568,13 @@ export async function exportKey(
     confirmExportPassphrase,
   });
 }
+
+/**
+ * Fetch trust scores for arbitrary relay URLs.
+ * Used by NostrConnect modal to show scores for app-specified relays.
+ */
+export async function getRelayTrustScores(relays: string[]): Promise<{
+  scores: Record<string, number | null>;
+}> {
+  return apiPost('/relays/trust-scores', { relays });
+}

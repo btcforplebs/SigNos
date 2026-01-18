@@ -235,7 +235,8 @@ data class RelayStatus(
     val url: String,
     val connected: Boolean,
     val lastConnected: String? = null,
-    val lastDisconnected: String? = null
+    val lastDisconnected: String? = null,
+    val trustScore: Int? = null
 )
 
 /**
@@ -512,4 +513,22 @@ data class ExportKeyResponse(
     val key: String? = null,
     val format: String? = null,  // 'nsec' | 'ncryptsec'
     val error: String? = null
+)
+
+// ==================== Relay Trust Scores ====================
+
+/**
+ * Request body for fetching relay trust scores
+ */
+@Serializable
+data class RelayTrustScoresRequest(
+    val relays: List<String>
+)
+
+/**
+ * Response from fetching relay trust scores
+ */
+@Serializable
+data class RelayTrustScoresResponse(
+    val scores: Map<String, Int?>
 )

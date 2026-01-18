@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.8.0]
+
+### Added
+- **Relay trust scores**: Integration with trustedrelays.xyz API for relay reputation
+  - Daemon fetches trust scores on startup and refreshes hourly
+  - Scores displayed as color-coded badges in sidebar and System Status modal
+  - NostrConnect modal shows trust scores for app-specified relays (fetched on-demand)
+  - New API endpoint `POST /relays/trust-scores` for on-demand score lookups
+  - Score thresholds: ≥80 green (excellent), 60-79 teal (good), 40-59 yellow (fair), <40 red (poor)
+  - Shows "?" badge when score unavailable
+  - URL normalization strips trailing slashes for consistent cache keys
+  - Informational only - does not affect relay usage
+- **Android: Trust score badges** in System Status and Connect App sheets
+  - Same color-coded display as Web UI
+  - Two-column grid layout for relay badges in Connect App sheet
+  - Added Teal color to theme for "good" score range
+- **Help documentation**: Added "Relay Trust Scores" section to Help page (Web UI and Android)
+
+### Improved
+- **Web UI: NostrConnect modal redesign**
+  - Cleaner sectioned layout: "Detected App", "Details" (collapsible), "Connection Settings"
+  - Relays displayed as two-column grid with trust score badges
+  - Technical details (client ID, URL, permissions) collapsed by default
+  - Reduced textarea rows for more compact appearance
+
+---
+
 ## [1.7.0]
 
 ### Added

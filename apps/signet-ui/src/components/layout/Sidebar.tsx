@@ -9,6 +9,16 @@ import styles from './Sidebar.module.css';
 
 export type NavItem = 'home' | 'apps' | 'activity' | 'logs' | 'keys' | 'help' | 'settings';
 
+/**
+ * Get CSS class for trust score badge based on score thresholds
+ */
+function getScoreClass(score: number): string {
+  if (score >= 80) return styles.scoreExcellent;
+  if (score >= 60) return styles.scoreGood;
+  if (score >= 40) return styles.scoreFair;
+  return styles.scorePoor;
+}
+
 interface SidebarProps {
   activeNav: NavItem;
   onNavChange: (nav: NavItem) => void;
@@ -318,6 +328,21 @@ export function Sidebar({
                         <span className={styles.relayUrl} title={relay.url}>
                           {displayUrl}
                         </span>
+                        {relay.trustScore !== null ? (
+                          <span
+                            className={`${styles.scoreBadge} ${getScoreClass(relay.trustScore)}`}
+                            title={`Trust score: ${relay.trustScore}`}
+                          >
+                            {relay.trustScore}
+                          </span>
+                        ) : (
+                          <span
+                            className={`${styles.scoreBadge} ${styles.scoreUnknown}`}
+                            title="Trust score unavailable"
+                          >
+                            ?
+                          </span>
+                        )}
                       </div>
                     </li>
                   );

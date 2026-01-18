@@ -28,6 +28,8 @@ import tech.geektoshi.signet.data.model.NostrconnectRequest
 import tech.geektoshi.signet.data.model.NostrconnectResponse
 import tech.geektoshi.signet.data.model.OperationResponse
 import tech.geektoshi.signet.data.model.RelaysResponse
+import tech.geektoshi.signet.data.model.RelayTrustScoresRequest
+import tech.geektoshi.signet.data.model.RelayTrustScoresResponse
 import tech.geektoshi.signet.data.model.RequestsResponse
 import tech.geektoshi.signet.data.model.UpdateDeadManSwitchBody
 import io.ktor.client.HttpClient
@@ -391,6 +393,16 @@ class SignetApiClient(
      */
     suspend fun getRelays(): RelaysResponse {
         return withRetry { client.get("/relays").body() }
+    }
+
+    /**
+     * Get trust scores for arbitrary relay URLs.
+     * Used by NostrConnect modal to show scores for app-specified relays.
+     */
+    suspend fun getRelayTrustScores(relays: List<String>): RelayTrustScoresResponse {
+        return client.post("/relays/trust-scores") {
+            setBody(RelayTrustScoresRequest(relays = relays))
+        }.body()
     }
 
     /**
