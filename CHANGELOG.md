@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.1]
+
+### Added
+- **NIP-46 `switch_relays` method**: Clients can request the signer's preferred relay list
+  - Returns JSON array of relay URLs for connected apps
+  - Requires existing connection (KeyUser record) - unauthenticated clients receive "Not authorized"
+  - Implements [NIP-46 switch_relays proposal](https://github.com/nostr-protocol/nips/pull/2193)
+
+---
+
 ## [1.8.0]
 
 ### Added
