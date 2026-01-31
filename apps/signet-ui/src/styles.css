@@ -8,7 +8,9 @@
   color-scheme: dark;
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -90,12 +92,14 @@ a:hover {
 }
 
 /* Code */
-code, pre {
+code,
+pre {
   font-family: var(--font-mono);
 }
 
 /* Mobile touch improvements */
 @media (pointer: coarse) {
+
   button,
   [role="button"],
   select,
@@ -111,6 +115,7 @@ code, pre {
   textarea,
   select {
     min-height: 44px;
-    font-size: 16px; /* Prevents iOS zoom on focus */
+    font-size: 16px;
+    /* Prevents iOS zoom on focus */
   }
 }

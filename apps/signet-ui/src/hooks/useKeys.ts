@@ -14,6 +14,8 @@ import { buildErrorMessage } from '../lib/formatters.js';
 import { useMutation } from './useMutation.js';
 import { useSSESubscription } from '../contexts/ServerEventsContext.js';
 import type { ServerEvent } from './useServerEvents.js';
+import { isStandalone, useSettings } from '../contexts/SettingsContext.js';
+import { authenticateWithBiometrics, getBiometricCredentials, setBiometricCredentials, deleteBiometricCredentials } from '../lib/biometric.js';
 
 interface DeleteKeyResult {
     ok: boolean;
@@ -34,7 +36,8 @@ interface UseKeysResult {
         encryption?: EncryptionFormat;
     }) => Promise<KeyInfo | null>;
     deleteKey: (keyName: string, passphrase?: string) => Promise<{ success: boolean; revokedApps?: number }>;
-    unlockKey: (keyName: string, passphrase: string) => Promise<boolean>;
+    unlockKey: (keyName: string, passphrase?: string, saveToKeychain?: boolean) => Promise<boolean>;
+    unlockWithBiometrics: (keyName: string) => Promise<boolean>;
     lockKey: (keyName: string) => Promise<boolean>;
     lockAllKeys: () => Promise<{ success: boolean; lockedCount?: number }>;
     renameKey: (keyName: string, newName: string) => Promise<boolean>;
@@ -56,6 +59,7 @@ interface UseKeysResult {
 }
 
 export function useKeys(): UseKeysResult {
+    const { settings } = useSettings();
     const [keys, setKeys] = useState<KeyInfo[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -64,11 +68,22 @@ export function useKeys(): UseKeysResult {
 
     const refresh = useCallback(async () => {
         setLoading(true);
+        console.log('[useKeys] Refreshing keys...');
         try {
-            const response = await apiGet<{ keys: KeyInfo[] }>('/keys');
-            setKeys(response.keys);
+            if (isStandalone()) {
+                console.log('[useKeys] Mode: Standalone');
+                const { mobileSigner } = await import('../lib/mobile-signer.js');
+                const keys = await mobileSigner.getKeys();
+                console.log('[useKeys] Got keys from signer:', keys.length, keys);
+                setKeys(keys);
+            } else {
+                console.log('[useKeys] Mode: Connected');
+                const response = await apiGet<{ keys: KeyInfo[] }>('/keys');
+                setKeys(response.keys);
+            }
             setError(null);
         } catch (err) {
+            console.error('[useKeys] Error loading keys:', err);
             setError(buildErrorMessage(err, 'Unable to load keys'));
         } finally {
             setLoading(false);
@@ -115,18 +130,30 @@ export function useKeys(): UseKeysResult {
             if (!data.keyName.trim()) {
                 throw new Error('Key name is required');
             }
-            const result = await apiPost<{ ok?: boolean; key?: KeyInfo; error?: string }>('/keys', data);
-            if (!result.ok) {
-                throw new Error(result.error || 'Failed to create key');
+
+            if (isStandalone()) {
+                const { mobileSigner } = await import('../lib/mobile-signer.js');
+                await mobileSigner.createKey(data.keyName, data.nsec);
+                return null;
+            } else {
+                const result = await apiPost<{ ok?: boolean; key?: KeyInfo; error?: string }>('/keys', data);
+                if (!result.ok) {
+                    throw new Error(result.error || 'Failed to create key');
+                }
+                return result.key ?? null;
             }
-            return result.key ?? null;
         },
         { errorPrefix: 'Failed to create key', onSuccess: refresh, onError: setError }
     );
 
-    // Delete key mutation
+    // Other mutations
     const deleteMutation = useMutation(
         async ({ keyName, passphrase }: { keyName: string; passphrase?: string }) => {
+            if (isStandalone()) {
+                const { mobileSigner } = await import('../lib/mobile-signer.js');
+                await mobileSigner.deleteKey(keyName);
+                return { success: true, revokedApps: 0 };
+            }
             const result = await apiDelete<DeleteKeyResult>(
                 `/keys/${encodeURIComponent(keyName)}`,
                 passphrase ? { passphrase } : undefined
@@ -139,9 +166,37 @@ export function useKeys(): UseKeysResult {
         { errorPrefix: 'Failed to delete key', onSuccess: refresh, onError: setError }
     );
 
-    // Unlock key mutation
     const unlockMutation = useMutation(
-        async ({ keyName, passphrase }: { keyName: string; passphrase: string }) => {
+        async ({ keyName, passphrase, saveToKeychain }: { keyName: string; passphrase?: string; saveToKeychain?: boolean }) => {
+            if (isStandalone()) {
+                const { mobileSigner } = await import('../lib/mobile-signer.js');
+
+                let actualPassphrase = passphrase;
+
+                // If no passphrase provided, try biometric keychain
+                if (!actualPassphrase && settings.biometricsEnabled) {
+                    const authenticated = await authenticateWithBiometrics(`Unlock ${keyName}`);
+                    if (authenticated) {
+                        actualPassphrase = await getBiometricCredentials(keyName) || undefined;
+                    }
+                }
+
+                if (!actualPassphrase) {
+                    throw new Error('Passphrase required or biometric authentication failed');
+                }
+
+                const success = await mobileSigner.unlockKey(keyName, actualPassphrase);
+
+                // If successful and saveToKeychain is requested, store it
+                if (success && saveToKeychain && settings.biometricsEnabled) {
+                    await setBiometricCredentials(keyName, actualPassphrase);
+                }
+
+                return success;
+            }
+
+            if (!passphrase) throw new Error('Passphrase required');
+
             const result = await apiPost<{ ok?: boolean; error?: string }>(
                 `/keys/${encodeURIComponent(keyName)}/unlock`,
                 { passphrase }
@@ -154,9 +209,13 @@ export function useKeys(): UseKeysResult {
         { errorPrefix: 'Failed to unlock key', onSuccess: refresh, onError: setError }
     );
 
-    // Lock key mutation
     const lockMutation = useMutation(
         async ({ keyName }: { keyName: string }) => {
+            if (isStandalone()) {
+                const { mobileSigner } = await import('../lib/mobile-signer.js');
+                await mobileSigner.lockKey(keyName);
+                return true;
+            }
             const result = await apiPost<{ ok?: boolean; error?: string }>(
                 `/keys/${encodeURIComponent(keyName)}/lock`
             );
@@ -168,9 +227,13 @@ export function useKeys(): UseKeysResult {
         { errorPrefix: 'Failed to lock key', onSuccess: refresh, onError: setError }
     );
 
-    // Lock all keys mutation
     const lockAllMutation = useMutation(
         async () => {
+            if (isStandalone()) {
+                const { mobileSigner } = await import('../lib/mobile-signer.js');
+                await mobileSigner.lockAllKeys();
+                return { success: true, lockedCount: 1 };
+            }
             const result = await lockAllKeysApi();
             if (!result.ok) {
                 throw new Error(result.error || 'Failed to lock all keys');
@@ -180,12 +243,12 @@ export function useKeys(): UseKeysResult {
         { errorPrefix: 'Failed to lock all keys', onSuccess: refresh, onError: setError }
     );
 
-    // Rename key mutation
     const renameMutation = useMutation(
         async ({ keyName, newName }: { keyName: string; newName: string }) => {
             if (!newName.trim()) {
                 throw new Error('New key name is required');
             }
+            if (isStandalone()) return true; // TODO: Implement in mobileSigner if needed
             const result = await apiPatch<{ ok?: boolean; error?: string }>(
                 `/keys/${encodeURIComponent(keyName)}`,
                 { newName: newName.trim() }
@@ -198,12 +261,12 @@ export function useKeys(): UseKeysResult {
         { errorPrefix: 'Failed to rename key', onSuccess: refresh, onError: setError }
     );
 
-    // Set passphrase mutation
     const setPassphraseMutation = useMutation(
         async ({ keyName, passphrase }: { keyName: string; passphrase: string }) => {
             if (!passphrase.trim()) {
                 throw new Error('Passphrase is required');
             }
+            if (isStandalone()) return true; // TODO: Implement in mobileSigner
             const result = await apiPost<{ ok?: boolean; error?: string }>(
                 `/keys/${encodeURIComponent(keyName)}/set-passphrase`,
                 { passphrase }
@@ -296,15 +359,19 @@ export function useKeys(): UseKeysResult {
         return result ?? { success: false };
     }, [deleteMutation]);
 
-    const unlockKey = useCallback(async (keyName: string, passphrase: string) => {
+    const unlockKey = useCallback(async (keyName: string, passphrase?: string, saveToKeychain?: boolean) => {
         setUnlockingKeyName(keyName);
         try {
-            const result = await unlockMutation.mutate({ keyName, passphrase });
+            const result = await unlockMutation.mutate({ keyName, passphrase, saveToKeychain });
             return result ?? false;
         } finally {
             setUnlockingKeyName(null);
         }
     }, [unlockMutation]);
+
+    const unlockWithBiometrics = useCallback(async (keyName: string) => {
+        return unlockKey(keyName, undefined, false);
+    }, [unlockKey]);
 
     const lockKey = useCallback(async (keyName: string) => {
         setLockingKeyName(keyName);
@@ -367,7 +434,6 @@ export function useKeys(): UseKeysResult {
         setError(null);
     }, []);
 
-    // Combine errors from all mutations
     const combinedError = error
         || createMutation.error
         || deleteMutation.error
@@ -388,6 +454,7 @@ export function useKeys(): UseKeysResult {
         createKey,
         deleteKey,
         unlockKey,
+        unlockWithBiometrics,
         lockKey,
         lockAllKeys,
         renameKey,

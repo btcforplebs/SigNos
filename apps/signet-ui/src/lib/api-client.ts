@@ -62,7 +62,11 @@ function getCsrfTokenFromCookie(): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+import { isStandalone } from '../contexts/SettingsContext.js';
+
 async function ensureCsrfToken(): Promise<string> {
+  if (isStandalone()) return 'standalone_token';
+
   const existing = getCsrfTokenFromCookie();
   if (existing) return existing;
 
@@ -111,6 +115,17 @@ const buildApiBases = (): string[] => {
       }
       if (hostname !== '127.0.0.1') {
         add(`${protocol}//127.0.0.1:3000`);
+      }
+
+      // Add user-configured daemon URL from settings
+      const saved = localStorage.getItem('signet_settings');
+      if (saved) {
+        try {
+          const { daemonUrl } = JSON.parse(saved);
+          if (daemonUrl) add(daemonUrl);
+        } catch (e) {
+          // Ignore
+        }
       }
     } catch {
       add('http://localhost:3000');
@@ -163,6 +178,10 @@ export async function callApi(
   init?: RequestInit,
   options?: ApiOptions
 ): Promise<Response> {
+  if (isStandalone()) {
+    console.warn('[API] Standalone mode active, blocking request to:', path);
+    throw new ApiError('Not available in standalone mode', 0, 'Network Error');
+  }
   const attempts: string[] = [];
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
@@ -327,6 +346,27 @@ export async function generateConnectionToken(keyName: string): Promise<{
   expiresAt?: string;
   error?: string;
 }> {
+  if (isStandalone()) {
+    const { mobileSigner } = await import('./mobile-signer.js');
+    const keys = await mobileSigner.getKeys();
+    const key = keys.find(k => k.name === keyName);
+    if (!key) return { ok: false, error: 'Key not found' };
+
+    const relays = [
+      'wss://relay.nip46.com',
+      'wss://relay.primal.net',
+      'wss://relay.damus.io',
+      'wss://theforest.nostr1.com',
+      'wss://nostr.oxtr.dev',
+    ];
+    const bunkerUri = `bunker://${key.pubkey}?relay=${relays.map(encodeURIComponent).join('&relay=')}`;
+
+    return {
+      ok: true,
+      bunkerUri,
+      expiresAt: new Date(Date.now() + 3600000).toISOString(),
+    };
+  }
   return apiPost(`/keys/${encodeURIComponent(keyName)}/connection-token`);
 }
 
@@ -397,7 +437,7 @@ export interface DeadManSwitchStatus {
   lastResetAt: number | null;
   remainingSec: number | null;
   panicTriggeredAt: number | null;
-  remainingAttempts: number;
+  remainingAttempts?: number;
 }
 
 /**

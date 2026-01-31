@@ -47,3 +47,6 @@ export type { HealthStatus } from './health.js';
 
 // Log types
 export type { LogLevel, LogEntry, LogsResponse, LogFilterParams } from './logs.js';
+
+// Event types
+export type { ServerEvent, DeadManSwitchStatus } from './events.js';

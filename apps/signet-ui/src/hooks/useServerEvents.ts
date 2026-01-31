@@ -1,36 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { PendingRequest, ConnectedApp, DashboardStats, KeyInfo, RelayStatusResponse, ActivityEntry, AdminActivityEntry, LogEntry, HealthStatus } from '@signet/types';
-import type { DeadManSwitchStatus } from '../lib/api-client.js';
+import type { PendingRequest, ConnectedApp, DashboardStats, KeyInfo, RelayStatusResponse, ActivityEntry, AdminActivityEntry, LogEntry, HealthStatus, ServerEvent, DeadManSwitchStatus } from '@signet/types';
 
 /**
  * Server-sent event types matching the backend event-service.ts
  */
-export type ServerEvent =
-  | { type: 'connected' }
-  | { type: 'reconnected' }
-  | { type: 'request:created'; request: PendingRequest }
-  | { type: 'request:approved'; requestId: string; activity: ActivityEntry }
-  | { type: 'request:denied'; requestId: string; activity: ActivityEntry }
-  | { type: 'request:expired'; requestId: string }
-  | { type: 'request:auto_approved'; activity: ActivityEntry }
-  | { type: 'app:connected'; app: ConnectedApp }
-  | { type: 'app:revoked'; appId: number }
-  | { type: 'app:updated'; app: ConnectedApp }
-  | { type: 'key:created'; key: KeyInfo }
-  | { type: 'key:unlocked'; keyName: string }
-  | { type: 'key:locked'; keyName: string }
-  | { type: 'key:deleted'; keyName: string }
-  | { type: 'key:renamed'; oldName: string; newName: string }
-  | { type: 'key:updated'; keyName: string }
-  | { type: 'stats:updated'; stats: DashboardStats }
-  | { type: 'relays:updated'; relays: RelayStatusResponse }
-  | { type: 'admin:event'; activity: AdminActivityEntry }
-  | { type: 'deadman:panic'; status: DeadManSwitchStatus }
-  | { type: 'deadman:reset'; status: DeadManSwitchStatus }
-  | { type: 'deadman:updated'; status: DeadManSwitchStatus }
-  | { type: 'log:entry'; entry: LogEntry }
-  | { type: 'health:updated'; health: HealthStatus }
-  | { type: 'ping' };
+export type { ServerEvent };
 
 export type ServerEventCallback = (event: ServerEvent) => void;
 
@@ -59,6 +33,8 @@ function getApiBase(): string {
   return '';
 }
 
+import { isStandalone } from '../contexts/SettingsContext.js';
+
 export function useServerEvents(options: UseServerEventsOptions = {}): UseServerEventsResult {
   const { enabled = true, onEvent } = options;
 
@@ -82,6 +58,11 @@ export function useServerEvents(options: UseServerEventsOptions = {}): UseServer
 
   const connect = useCallback(() => {
     if (!enabled) return;
+
+    if (isStandalone()) {
+      // Standalone mode is handled by a separate effect
+      return;
+    }
 
     // Clean up any existing connection
     if (eventSourceRef.current) {
@@ -107,7 +88,6 @@ export function useServerEvents(options: UseServerEventsOptions = {}): UseServer
         lastEventTimeRef.current = Date.now();
         setConnectionCount(c => c + 1);
 
-        // Emit reconnected event so subscribers can refresh their state
         if (isReconnection && onEventRef.current) {
           onEventRef.current({ type: 'reconnected' });
         }
@@ -127,19 +107,15 @@ export function useServerEvents(options: UseServerEventsOptions = {}): UseServer
 
       eventSource.onerror = () => {
         setConnected(false);
-
-        // EventSource automatically tries to reconnect, but we want more control
         eventSource.close();
         eventSourceRef.current = null;
 
-        // Don't reconnect if we're offline
         if (!navigator.onLine) {
           setError('Network offline');
           setReconnecting(false);
           return;
         }
 
-        // Exponential backoff for reconnect
         setReconnecting(true);
         setError('Connection lost. Reconnecting...');
 
@@ -190,13 +166,12 @@ export function useServerEvents(options: UseServerEventsOptions = {}): UseServer
     };
   }, [enabled, connect, disconnect]);
 
-  // Heartbeat monitoring - detect stale connections
+  // Heartbeat monitoring
   useEffect(() => {
     if (!enabled) return;
 
     heartbeatIntervalRef.current = setInterval(() => {
       if (connected && Date.now() - lastEventTimeRef.current > HEARTBEAT_TIMEOUT) {
-        console.warn('SSE heartbeat timeout, reconnecting...');
         connect();
       }
     }, HEARTBEAT_CHECK_INTERVAL);
@@ -204,56 +179,69 @@ export function useServerEvents(options: UseServerEventsOptions = {}): UseServer
     return () => {
       if (heartbeatIntervalRef.current) {
         clearInterval(heartbeatIntervalRef.current);
-        heartbeatIntervalRef.current = null;
       }
     };
   }, [enabled, connected, connect]);
 
-  // Page visibility handling - reconnect when tab becomes visible
+  // Page visibility & Network status
   useEffect(() => {
     if (!enabled) return;
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // Reset last event time to avoid immediate timeout
         lastEventTimeRef.current = Date.now();
-
         if (!connected && !reconnecting) {
-          console.log('Tab visible, reconnecting SSE...');
           connect();
         }
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [enabled, connected, reconnecting, connect]);
-
-  // Network status awareness
-  useEffect(() => {
-    if (!enabled) return;
-
     const handleOnline = () => {
-      console.log('Network online, reconnecting SSE...');
       setError(null);
       reconnectDelayRef.current = INITIAL_RECONNECT_DELAY;
       connect();
     };
 
     const handleOffline = () => {
-      console.log('Network offline');
       disconnect();
       setError('Network offline');
     };
 
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [enabled, connect, disconnect]);
+  }, [enabled, connected, reconnecting, connect, disconnect]);
+
+  // Handle standalone mode
+  useEffect(() => {
+    if (!enabled) return;
+
+    if (isStandalone()) {
+      let unsubscribe: (() => void) | undefined;
+
+      import('../lib/mobile-signer.js').then(({ mobileSigner }) => {
+        unsubscribe = mobileSigner.onEvent((event) => {
+          if (onEventRef.current) {
+            onEventRef.current(event);
+          }
+          if (event.type === 'connected') {
+            setConnected(true);
+          }
+        });
+        mobileSigner.start();
+      });
+
+      return () => {
+        unsubscribe?.();
+      };
+    }
+  }, [enabled]);
 
   return {
     connected,

@@ -23,6 +23,8 @@ interface UseAppsResult {
     clearError: () => void;
 }
 
+import { isStandalone } from '../contexts/SettingsContext.js';
+
 export function useApps(): UseAppsResult {
     const [apps, setApps] = useState<ConnectedApp[]>([]);
     const [loading, setLoading] = useState(true);
@@ -32,8 +34,13 @@ export function useApps(): UseAppsResult {
     const refresh = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await apiGet<{ apps: ConnectedApp[] }>('/apps');
-            setApps(response.apps);
+            if (isStandalone()) {
+                // In standalone mode, we don't track apps in a persistent DB yet
+                setApps([]);
+            } else {
+                const response = await apiGet<{ apps: ConnectedApp[] }>('/apps');
+                setApps(response.apps);
+            }
             setError(null);
         } catch (err) {
             setError(buildErrorMessage(err, 'Unable to load connected apps'));
@@ -84,6 +91,7 @@ export function useApps(): UseAppsResult {
     // Revoke app mutation
     const revokeMutation = useMutation(
         async (appId: number) => {
+            if (isStandalone()) return true;
             const result = await apiPost<{ ok?: boolean; error?: string }>(`/apps/${appId}/revoke`, {});
             if (!result?.ok) {
                 throw new Error(result?.error ?? 'Failed to revoke app access');
@@ -99,6 +107,7 @@ export function useApps(): UseAppsResult {
             if (!description.trim()) {
                 throw new Error('Description is required');
             }
+            if (isStandalone()) return true;
             const result = await apiPatch<{ ok?: boolean; error?: string }>(`/apps/${appId}`, {
                 description: description.trim()
             });
@@ -113,6 +122,7 @@ export function useApps(): UseAppsResult {
     // Update trust level mutation
     const trustLevelMutation = useMutation(
         async ({ appId, trustLevel }: { appId: number; trustLevel: TrustLevel }) => {
+            if (isStandalone()) return true;
             const result = await apiPatch<{ ok?: boolean; error?: string }>(`/apps/${appId}`, { trustLevel });
             if (!result?.ok) {
                 throw new Error(result?.error ?? 'Failed to update trust level');
@@ -125,6 +135,7 @@ export function useApps(): UseAppsResult {
     // Suspend app mutation
     const suspendMutation = useMutation(
         async ({ appId, until }: { appId: number; until?: Date }) => {
+            if (isStandalone()) return true;
             const body = until ? { until: until.toISOString() } : {};
             const result = await apiPost<{ ok?: boolean; error?: string }>(`/apps/${appId}/suspend`, body);
             if (!result?.ok) {
@@ -138,6 +149,7 @@ export function useApps(): UseAppsResult {
     // Unsuspend app mutation
     const unsuspendMutation = useMutation(
         async (appId: number) => {
+            if (isStandalone()) return true;
             const result = await apiPost<{ ok?: boolean; error?: string }>(`/apps/${appId}/unsuspend`, {});
             if (!result?.ok) {
                 throw new Error(result?.error ?? 'Failed to unsuspend app');
@@ -150,6 +162,7 @@ export function useApps(): UseAppsResult {
     // Suspend all apps mutation
     const suspendAllMutation = useMutation(
         async (until?: Date) => {
+            if (isStandalone()) return { success: true, suspendedCount: 0 };
             const result = await suspendAllAppsApi(until?.toISOString());
             if (!result?.ok) {
                 throw new Error(result?.error ?? 'Failed to suspend all apps');
@@ -162,6 +175,7 @@ export function useApps(): UseAppsResult {
     // Resume all apps mutation
     const resumeAllMutation = useMutation(
         async () => {
+            if (isStandalone()) return { success: true, resumedCount: 0 };
             const result = await resumeAllAppsApi();
             if (!result?.ok) {
                 throw new Error(result?.error ?? 'Failed to resume all apps');

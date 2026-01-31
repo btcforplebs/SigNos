@@ -1,17 +1,72 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { TrustLevel } from '@signet/types';
+import { checkBiometricAvailability } from '../lib/biometric.js';
 
 export interface UserSettings {
   notificationsEnabled: boolean;
   defaultTrustLevel: TrustLevel;
+  isStandalone: boolean;
+  daemonUrl: string;
+  biometricsEnabled: boolean;
+  biometricType?: string;
 }
+
+const isCapacitor = typeof window !== 'undefined' &&
+  ((window as any).Capacitor?.isNative ||
+    navigator.userAgent.includes('Capacitor') ||
+    window.location.protocol === 'capacitor:' ||
+    (window.location.hostname === 'localhost' && window.location.port === ''));
 
 const DEFAULT_SETTINGS: UserSettings = {
   notificationsEnabled: false,
   defaultTrustLevel: 'reasonable',
+  isStandalone: isCapacitor,
+  daemonUrl: '',
+  biometricsEnabled: false,
 };
 
 const STORAGE_KEY = 'signet_settings';
+
+export const isStandalone = (): boolean => {
+  if (typeof window === 'undefined') return false;
+
+  const saved = localStorage.getItem(STORAGE_KEY);
+
+  // Debug info
+  const envInfo = {
+    protocol: window.location.protocol,
+    hostname: window.location.hostname,
+    port: window.location.port,
+    isNative: (window as any).Capacitor?.isNative,
+    userAgent: navigator.userAgent
+  };
+
+  if (!saved) {
+    console.log('[Settings] No settings. Env:', envInfo, 'Defaulting to:', isCapacitor);
+    return isCapacitor;
+  }
+
+  try {
+    const parsed = JSON.parse(saved);
+
+    // Force standalone on mobile if no daemon URL is set, 
+    // regardless of what the stale isStandalone flag says.
+    let result = parsed.isStandalone;
+    const isCap = isCapacitor;
+
+    if (isCap && !parsed.daemonUrl) {
+      result = true;
+    } else if (result === undefined) {
+      result = isCap;
+    }
+
+    console.log('[Settings] isStandalone check:', result, 'isCapacitor:', isCap, 'Env:', envInfo);
+    return result;
+  } catch (e) {
+    console.log('[Settings] Error parsing. Fallback to:', isCapacitor);
+    return isCapacitor;
+  }
+};
 
 interface SettingsContextValue {
   settings: UserSettings;
@@ -31,6 +86,10 @@ function loadSettings(): UserSettings {
     return {
       notificationsEnabled: parsed.notificationsEnabled ?? DEFAULT_SETTINGS.notificationsEnabled,
       defaultTrustLevel: parsed.defaultTrustLevel ?? DEFAULT_SETTINGS.defaultTrustLevel,
+      isStandalone: parsed.isStandalone ?? DEFAULT_SETTINGS.isStandalone,
+      daemonUrl: parsed.daemonUrl ?? DEFAULT_SETTINGS.daemonUrl,
+      biometricsEnabled: parsed.biometricsEnabled ?? DEFAULT_SETTINGS.biometricsEnabled,
+      biometricType: parsed.biometricType,
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -43,6 +102,18 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   }, [settings]);
+
+  // Check biometric availability on mount
+  useEffect(() => {
+    if (isCapacitor) {
+      checkBiometricAvailability().then(result => {
+        if (result.available) {
+          // Store the numeric value or string name
+          updateSettings({ biometricType: String(result.biometryType) });
+        }
+      });
+    }
+  }, []);
 
   const updateSettings = (updates: Partial<UserSettings>) => {
     setSettings(prev => ({ ...prev, ...updates }));

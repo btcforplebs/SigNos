@@ -14,6 +14,8 @@ export interface UseHealthResult {
     refresh: () => void;
 }
 
+import { isStandalone } from '../contexts/SettingsContext.js';
+
 export function useHealth(): UseHealthResult {
     const [health, setHealth] = useState<HealthStatus | null>(null);
     const [loading, setLoading] = useState(true);
@@ -21,12 +23,24 @@ export function useHealth(): UseHealthResult {
 
     const refresh = useCallback(async () => {
         try {
-            const data = await apiGet<HealthStatus>('/health');
-            setHealth(data);
+            if (isStandalone()) {
+                setHealth({
+                    status: 'ok',
+                    uptime: 3600,
+                    memory: { heapMB: 50, rssMB: 100 },
+                    relays: { connected: 3, total: 3 },
+                    keys: { active: 1, locked: 0, offline: 0 },
+                    subscriptions: 1,
+                    sseClients: 0,
+                    lastPoolReset: null
+                });
+            } else {
+                const data = await apiGet<HealthStatus>('/health');
+                setHealth(data);
+            }
             setError(null);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load health status');
-            // Keep the last known health status but mark error
         } finally {
             setLoading(false);
         }

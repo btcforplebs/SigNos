@@ -24,6 +24,8 @@ export interface UseDeadManSwitchResult {
   updateTimeframe: (keyName: string, passphrase: string, timeframeSec: number) => Promise<{ ok: boolean; error?: string; remainingAttempts?: number }>;
 }
 
+import { isStandalone } from '../contexts/SettingsContext.js';
+
 // Time thresholds for urgency levels
 const WARNING_THRESHOLD_SEC = 12 * 60 * 60; // 12 hours
 const CRITICAL_THRESHOLD_SEC = 60 * 60; // 1 hour
@@ -91,6 +93,17 @@ export function useDeadManSwitch(): UseDeadManSwitchResult {
   // Refresh status from server
   const refresh = useCallback(async () => {
     try {
+      if (isStandalone()) {
+        setStatus({
+          enabled: false,
+          timeframeSec: 86400,
+          remainingSec: 86400,
+          lastResetAt: null,
+          panicTriggeredAt: null,
+          remainingAttempts: 5,
+        });
+        return;
+      }
       const data = await getDeadManSwitchStatus();
       setStatus(data);
       setError(null);
@@ -154,6 +167,7 @@ export function useDeadManSwitch(): UseDeadManSwitchResult {
 
   // Enable dead man's switch
   const enable = useCallback(async (timeframeSec?: number) => {
+    if (isStandalone()) return { ok: true };
     try {
       const result = await enableDeadManSwitch(timeframeSec);
       if (result.ok && result.status) {
@@ -168,6 +182,7 @@ export function useDeadManSwitch(): UseDeadManSwitchResult {
 
   // Disable dead man's switch
   const disable = useCallback(async (keyName: string, passphrase: string) => {
+    if (isStandalone()) return { ok: true };
     try {
       const result = await disableDeadManSwitch(keyName, passphrase);
       if (result.ok && result.status) {
@@ -182,6 +197,7 @@ export function useDeadManSwitch(): UseDeadManSwitchResult {
 
   // Reset timer
   const reset = useCallback(async (keyName: string, passphrase: string) => {
+    if (isStandalone()) return { ok: true };
     try {
       const result = await resetDeadManSwitch(keyName, passphrase);
       if (result.ok && result.status) {
@@ -196,6 +212,7 @@ export function useDeadManSwitch(): UseDeadManSwitchResult {
 
   // Test panic
   const testPanic = useCallback(async (keyName: string, passphrase: string) => {
+    if (isStandalone()) return { ok: true };
     try {
       const result = await testDeadManSwitchPanic(keyName, passphrase);
       if (result.ok && result.status) {
@@ -210,6 +227,7 @@ export function useDeadManSwitch(): UseDeadManSwitchResult {
 
   // Update timeframe
   const updateTimeframe = useCallback(async (keyName: string, passphrase: string, timeframeSec: number) => {
+    if (isStandalone()) return { ok: true };
     try {
       const result = await updateDeadManSwitchTimeframe(keyName, passphrase, timeframeSec);
       if (result.ok && result.status) {

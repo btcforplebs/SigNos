@@ -23,7 +23,9 @@ asarUnpack:
   - "**/node_modules/bcrypt/**/*"
   - "**/*.node"
 mac:
-  target: dmg
+  target:
+    - dmg
+    - zip
   icon: ../signet-ui/public/icon-512x512.png
   hardenedRuntime: true
   gatekeeperAssess: false

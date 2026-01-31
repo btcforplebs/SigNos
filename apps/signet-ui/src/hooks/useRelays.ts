@@ -14,6 +14,8 @@ interface UseRelaysResult {
   refresh: () => void;
 }
 
+import { isStandalone } from '../contexts/SettingsContext.js';
+
 export function useRelays(): UseRelaysResult {
   const [relays, setRelays] = useState<RelayStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -22,8 +24,23 @@ export function useRelays(): UseRelaysResult {
 
   const refresh = useCallback(async () => {
     try {
-      const data = await apiGet<RelayStatusResponse>('/relays');
-      setRelays(data);
+      if (isStandalone()) {
+        // Mock or fetch from mobileSigner if we add a method
+        setRelays({
+          connected: 5,
+          total: 5,
+          relays: [
+            { url: 'wss://relay.nip46.com', connected: true, lastConnected: new Date().toISOString(), lastDisconnected: null, trustScore: null },
+            { url: 'wss://relay.primal.net', connected: true, lastConnected: new Date().toISOString(), lastDisconnected: null, trustScore: null },
+            { url: 'wss://relay.damus.io', connected: true, lastConnected: new Date().toISOString(), lastDisconnected: null, trustScore: null },
+            { url: 'wss://theforest.nostr1.com', connected: true, lastConnected: new Date().toISOString(), lastDisconnected: null, trustScore: null },
+            { url: 'wss://nostr.oxtr.dev', connected: true, lastConnected: new Date().toISOString(), lastDisconnected: null, trustScore: null }
+          ]
+        });
+      } else {
+        const data = await apiGet<RelayStatusResponse>('/relays');
+        setRelays(data);
+      }
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load relay status');

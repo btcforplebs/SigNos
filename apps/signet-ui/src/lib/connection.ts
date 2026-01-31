@@ -13,7 +13,19 @@ function resolveConnectionInfoUrl(): string {
   return '/connection';
 }
 
+import { isStandalone } from '../contexts/SettingsContext.js';
+
 export async function fetchConnectionInfo(): Promise<ConnectionInfo | null> {
+  if (isStandalone()) {
+    return {
+      npub: 'npub1local',
+      pubkey: 'local',
+      npubUri: 'nostrconnect://local',
+      hexUri: 'nostrconnect://local',
+      relays: ['wss://relay.damus.io'],
+    };
+  }
+
   const url = resolveConnectionInfoUrl();
 
   try {

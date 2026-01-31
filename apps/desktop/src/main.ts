@@ -1,8 +1,9 @@
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, Tray, nativeImage } from 'electron';
 import * as path from 'path';
-import { fork, ChildProcess } from 'child_process';
+import { fork, ChildProcess, execSync } from 'child_process';
 import log from 'electron-log';
 import * as fs from 'fs';
+import * as net from 'net';
 
 // Configure logging
 log.transports.file.level = 'info';
@@ -21,6 +22,8 @@ let mainWindow: BrowserWindow | null = null;
 let daemonProcess: ChildProcess | null = null;
 let uiProcess: ChildProcess | null = null;
 let nodePath: string = '';
+let tray: Tray | null = null;
+let isQuitting = false;
 
 // Set app name
 app.name = 'Signet';
@@ -31,19 +34,20 @@ const resourcesPath = isDev ? path.join(__dirname, '../../..') : process.resourc
 
 let daemonEntry: string;
 let uiScript: string;
+let iconPath: string;
+let trayIconPath: string;
 
 if (isDev) {
-    daemonEntry = path.join(resourcesPath, 'apps/signet/dist/daemon/index.js'); // Assuming tsup output structure
-    // tsup src/daemon/index.ts -d dist/daemon -> dist/daemon/index.js
-
-    // "signet": "node dist/index.js" -> CLI
-    // "tsup src/daemon/index.ts -d dist/daemon" -> dist/daemon/index.js
-
+    daemonEntry = path.join(resourcesPath, 'apps/signet/dist/index.js'); // Point to CLI entry
     uiScript = path.join(resourcesPath, 'apps/signet-ui/server.mjs');
+    iconPath = path.join(resourcesPath, 'apps/signet-ui/public/favicon.svg'); // Use SVG or convert to PNG if needed for Tray
+    trayIconPath = path.join(resourcesPath, 'apps/signet-ui/public/trayKeyTemplate.png');
 } else {
     // In Prod: Resources/daemon/index.js (CLI) & Resources/ui/dist-server/server.cjs
     daemonEntry = path.join(resourcesPath, 'daemon/index.js');
     uiScript = path.join(resourcesPath, 'ui/dist-server/server.cjs');
+    iconPath = path.join(resourcesPath, 'ui/public/favicon.svg');
+    trayIconPath = path.join(resourcesPath, 'ui/public/trayKeyTemplate.png');
 }
 
 // Log paths for debugging
@@ -51,11 +55,100 @@ log.info('isDev:', isDev);
 log.info('Resources Path:', resourcesPath);
 log.info('Daemon Entry:', daemonEntry);
 log.info('UI Script:', uiScript);
+log.info('Tray Icon Path:', trayIconPath);
+log.info('Tray Icon Exists:', fs.existsSync(trayIconPath));
 
 // Calculate NODE_PATH once
 const asarPath = path.join(resourcesPath, 'app.asar', 'node_modules');
 const asarUnpackedPath = path.join(resourcesPath, 'app.asar.unpacked', 'node_modules');
 nodePath = isDev ? (process.env.NODE_PATH || '') : `${asarUnpackedPath}:${asarPath}`;
+
+// Check if port is in use
+function isPortInUse(port: number): Promise<boolean> {
+    return new Promise((resolve) => {
+        const server = net.createServer();
+        server.once('error', (err: any) => {
+            if (err.code === 'EADDRINUSE') {
+                resolve(true);
+            } else {
+                resolve(false);
+            }
+        });
+        server.once('listening', () => {
+            server.close();
+            resolve(false);
+        });
+        server.listen(port);
+    });
+}
+
+// Utility to kill process on specific port
+function killProcessOnPort(port: number) {
+    try {
+        log.info(`Checking for existing processes on port ${port}...`);
+        const pid = execSync(`lsof -t -i :${port}`).toString().trim();
+        if (pid) {
+            log.warn(`Forcefully killing zombie process ${pid} on port ${port} to ensure clean startup.`);
+            execSync(`kill -9 ${pid}`);
+        }
+    } catch (e) {
+        // execSync throws if no process is found (exit code 1)
+        log.info(`Port ${port} is clean.`);
+    }
+}
+
+async function ensurePortsFree() {
+    log.info('Ensuring ports 3001 and 4174 are free...');
+    killProcessOnPort(3001); // Daemon
+    killProcessOnPort(4174); // UI
+}
+
+function createTray() {
+    // Use the specific tray icon which is a Template Image (black for light mode, inverts for dark)
+    const icon = nativeImage.createFromPath(trayIconPath);
+    // 22x22 is standard for macOS menu bar
+    const trayIcon = icon.resize({ width: 22, height: 22 });
+    trayIcon.setTemplateImage(true);
+
+    tray = new Tray(trayIcon);
+    tray.setToolTip('Signet');
+
+    const contextMenu = Menu.buildFromTemplate([
+        {
+            label: 'Open Signet',
+            click: () => {
+                // Restore logic
+                if (app.dock) app.dock.show(); // Show in dock
+                if (mainWindow) {
+                    mainWindow.show();
+                    mainWindow.focus();
+                } else {
+                    createWindow();
+                }
+            }
+        },
+        { type: 'separator' },
+        {
+            label: 'Quit',
+            click: () => {
+                isQuitting = true;
+                app.quit();
+            }
+        }
+    ]);
+
+    tray.setContextMenu(contextMenu);
+
+    tray.on('double-click', () => {
+        if (app.dock) app.dock.show(); // Show in dock
+        if (mainWindow) {
+            mainWindow.show();
+            mainWindow.focus();
+        } else {
+            createWindow();
+        }
+    });
+}
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -64,55 +157,60 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
+            webSecurity: false,
         },
-        icon: isDev
-            ? path.join(resourcesPath, 'apps/signet-ui/public/favicon.svg')
-            : path.join(resourcesPath, 'ui/public/favicon.svg')
+        icon: iconPath
     });
 
     // Load the UI
-    // The UI server (server.mjs) listens on 4174 by default.
-    // We need to wait for it.
+    let retryCount = 0;
     const loadUrl = () => {
-        log.info('Attempting to load UI at http://localhost:4174...');
+        retryCount++;
+        log.info(`[Attempt ${retryCount}] Loading UI at http://localhost:4174...`);
         mainWindow?.loadURL('http://localhost:4174').catch((err) => {
-            log.warn('UI not ready yet, retrying in 1s...', err.message);
+            log.warn(`UI not ready yet (Attempt ${retryCount}), retrying in 1s...`, err.message);
             setTimeout(loadUrl, 1000);
         });
     };
 
-    setTimeout(loadUrl, 2000);
+    setTimeout(loadUrl, 500);
+
+    mainWindow.on('close', (event) => {
+        if (!isQuitting) {
+            event.preventDefault();
+            mainWindow?.hide();
+            if (app.dock) app.dock.hide(); // Hide from dock (menubar mode)
+            return false;
+        }
+    });
 
     mainWindow.on('closed', () => {
         mainWindow = null;
     });
 }
 
-function startDaemon() {
-    // We need to load config to send it.
-    // Or... can we just tell it to load its own config?
-    // The daemon expects a 'DaemonBootstrapConfig' message.
+async function waitForPort(port: number, timeout = 10000): Promise<boolean> {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+        if (await isPortInUse(port)) {
+            return true;
+        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    return false;
+}
 
-    // WORKAROUND: The daemon wrapper logic is in the CLI (commands/start.ts).
-    // The actual daemon entry (dist/daemon/index.js) just sets up listeners and waits for config.
-    // So we MUST send configuration.
-    // Loading config involves 'fs' and homedir, which we can do here.
+async function startDaemon() {
+    // Check if daemon port (3001) is already in use
+    const portInUse = await isPortInUse(3001);
 
-    // BUT: The types and config logic are in the signet package.
-    // Import them? We can try to import the config loading logic if we copied the files that support it.
-    // commands/start.ts imports ../config/config.js.
-    // Start Daemon
+    if (portInUse) {
+        log.info('Port 3001 is already in use. Assuming Daemon is already running.');
+        // Don't spawn a new daemon process. Connect to existing one.
+        return;
+    }
+
     log.info('Starting Daemon via CLI...');
-
-    // We use the CLI entry because it handles config loading and process forking correctly.
-    // Dependencies are now bundled into the JS file (except native modules), so we don't need complex NODE_PATH.
-    // Native modules (better-sqlite3) are in app.asar.unpacked/node_modules or similar, resolved by Electron or require.
-
-    // Ensure we set NODE_PATH for native modules if needed. 
-    // If better-sqlite3 is external, it will try to require('better-sqlite3').
-    // Electron should find it in app.asar/node_modules (unpacked).
-
-    // Ensure we set NODE_PATH for native modules.
     log.info('NODE_PATH:', nodePath);
     log.info('Using execPath:', process.execPath);
 
@@ -120,7 +218,8 @@ function startDaemon() {
         ...process.env,
         FORCE_COLOR: '1',
         NODE_PATH: nodePath,
-        ELECTRON_RUN_AS_NODE: '1'
+        ELECTRON_RUN_AS_NODE: '1',
+        SIGNET_PORT: '3001'
     };
 
     daemonProcess = fork(daemonEntry, ['start'], {
@@ -132,9 +231,26 @@ function startDaemon() {
 
     daemonProcess.stdout?.on('data', (data: Buffer) => log.info(`[DaemonWrapper] ${data.toString()}`));
     daemonProcess.stderr?.on('data', (data: Buffer) => log.error(`[DaemonWrapper] ${data.toString()}`));
+
+    // Wait for daemon to be ready
+    log.info('Waiting for Daemon to listen on port 3001...');
+    const ready = await waitForPort(3001);
+    if (ready) {
+        log.info('Daemon is ready on port 3001.');
+    } else {
+        log.error('Timed out waiting for Daemon port 3001.');
+    }
 }
 
-function startUi() {
+async function startUi() {
+    // Check if UI port (4174) is already in use
+    const portInUse = await isPortInUse(4174);
+
+    if (portInUse) {
+        log.info('Port 4174 is already in use. Assuming UI Server is already running.');
+        return;
+    }
+
     log.info('Starting UI Server...');
     log.info('UI Script:', uiScript);
 
@@ -149,7 +265,7 @@ function startUi() {
         env: {
             ...process.env,
             PORT: '4174',
-            DAEMON_URL: 'http://localhost:3000',
+            DAEMON_URL: 'http://localhost:3001',
             ELECTRON_RUN_AS_NODE: '1',
             NODE_PATH: nodePath
         },
@@ -173,68 +289,116 @@ function setupMenu() {
                 { role: 'hideOthers' },
                 { role: 'unhide' },
                 { type: 'separator' },
-                { role: 'quit' }
+                {
+                    label: 'Quit Signet',
+                    accelerator: 'CmdOrCtrl+Q', // Explicit accelerator
+                    click: () => {
+                        isQuitting = true;
+                        app.quit();
+                    }
+                }
             ]
         },
-        {
-            label: 'Edit',
-            submenu: [
-                { role: 'undo' },
-                { role: 'redo' },
-                { type: 'separator' },
-                { role: 'cut' },
-                { role: 'copy' },
-                { role: 'paste' },
-                { role: 'selectAll' }
-            ]
-        },
-        {
-            label: 'View',
-            submenu: [
-                { role: 'reload' },
-                { role: 'forceReload' },
-                { role: 'toggleDevTools' },
-                { type: 'separator' },
-                { role: 'resetZoom' },
-                { role: 'zoomIn' },
-                { role: 'zoomOut' },
-                { type: 'separator' },
-                { role: 'togglefullscreen' }
-            ]
-        },
-        {
-            role: 'window',
-            submenu: [
-                { role: 'minimize' },
-                { role: 'close' }
-            ]
-        }
+        // ... (Edit, View menus)
+        // ... (Window menu)
     ];
+
+    // Restore standard Edit/View/Window menus...
+    const editMenu: Electron.MenuItemConstructorOptions = {
+        label: 'Edit',
+        submenu: [
+            { role: 'undo' },
+            { role: 'redo' },
+            { type: 'separator' },
+            { role: 'cut' },
+            { role: 'copy' },
+            { role: 'paste' },
+            { role: 'selectAll' }
+        ]
+    };
+
+    const viewMenu: Electron.MenuItemConstructorOptions = {
+        label: 'View',
+        submenu: [
+            { role: 'reload' },
+            { role: 'forceReload' },
+            { role: 'toggleDevTools' },
+            { type: 'separator' },
+            { role: 'resetZoom' },
+            { role: 'zoomIn' },
+            { role: 'zoomOut' },
+            { type: 'separator' },
+            { role: 'togglefullscreen' }
+        ]
+    };
+
+    const windowMenu: Electron.MenuItemConstructorOptions = {
+        role: 'window',
+        submenu: [
+            { role: 'minimize' },
+            { role: 'close' }
+        ]
+    };
+
+    template.push(editMenu, viewMenu, windowMenu);
 
     const menu = Menu.buildFromTemplate(template);
     Menu.setApplicationMenu(menu);
 }
 
-app.whenReady().then(() => {
-    startDaemon();
-    startUi();
-    createWindow();
-    setupMenu();
+const gotTheLock = app.requestSingleInstanceLock();
 
-    app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) {
+if (!gotTheLock) {
+    app.quit();
+} else {
+    app.on('second-instance', (event, commandLine, workingDirectory) => {
+        if (app.dock) app.dock.show();
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.show();
+            mainWindow.focus();
+        } else {
             createWindow();
         }
     });
-});
+
+    app.whenReady().then(async () => {
+        log.info('App starting up, showing window immediately...');
+
+        // Show window first for instant feedback
+        createWindow();
+        createTray();
+        setupMenu();
+
+        // Environment cleanup and backend startup in parallel
+        (async () => {
+            try {
+                await ensurePortsFree();
+                startDaemon(); // No await so they start together
+                startUi();
+            } catch (err) {
+                log.error('Error during backend startup:', err);
+            }
+        })();
+
+        app.on('activate', () => {
+            if (app.dock) app.dock.show();
+            if (mainWindow === null) {
+                createWindow();
+            } else {
+                mainWindow.show();
+            }
+        });
+    });
+}
+
 
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-        app.quit();
-    }
+    // Do not quit when windows are closed
 });
 
 app.on('before-quit', () => {
+    isQuitting = true;
     if (daemonProcess) daemonProcess.kill();
     if (uiProcess) uiProcess.kill();
 });

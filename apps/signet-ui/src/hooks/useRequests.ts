@@ -5,6 +5,7 @@ import { buildErrorMessage, formatRelativeTime, toNpub } from '../lib/formatters
 import { useSSESubscription } from '../contexts/ServerEventsContext.js';
 import type { ServerEvent } from './useServerEvents.js';
 import { useRequestFilters, type SortBy } from './useRequestFilters.js';
+import { isStandalone } from '../contexts/SettingsContext.js';
 import { useRequestSelection } from './useRequestSelection.js';
 
 const REQUEST_LIMIT = 10;
@@ -74,16 +75,27 @@ export function useRequests(): UseRequestsResult {
 
   // Data fetching
   const fetchRequests = useCallback(async (status: RequestFilter, offsetVal: number, append: boolean) => {
-    const response = await apiGet<{ requests?: PendingRequestWire[] }>(
-      `/requests?limit=${REQUEST_LIMIT}&status=${status}&offset=${offsetVal}`
-    );
+    let list: PendingRequest[] = [];
 
-    const list = Array.isArray(response.requests)
-      ? response.requests.map((request) => ({
+    if (isStandalone()) {
+      const { mobileSigner } = await import('../lib/mobile-signer.js');
+      list = await mobileSigner.getRequests();
+      // Filtering in standalone
+      if (status === 'pending') {
+        list = list.filter(r => !('allowed' in r));
+      }
+    } else {
+      const response = await apiGet<{ requests?: PendingRequestWire[] }>(
+        `/requests?limit=${REQUEST_LIMIT}&status=${status}&offset=${offsetVal}`
+      );
+
+      list = Array.isArray(response.requests)
+        ? response.requests.map((request) => ({
           ...request,
           requiresPassword: Boolean(request.requiresPassword)
         }))
-      : [];
+        : [];
+    }
 
     if (append) {
       setRequests(prev => [...prev, ...list]);
@@ -210,26 +222,31 @@ export function useRequests(): UseRequestsResult {
     setMeta(prev => ({ ...prev, [id]: { state: 'approving' } }));
 
     try {
-      const payload: { password?: string; trustLevel?: TrustLevel; alwaysAllow?: boolean; allowKind?: number; appName?: string } = {};
-      if (requiresPassword) {
-        payload.password = password;
-      }
-      if (trustLevel) {
-        payload.trustLevel = trustLevel;
-      }
-      if (alwaysAllow) {
-        payload.alwaysAllow = alwaysAllow;
-      }
-      if (allowKind !== undefined) {
-        payload.allowKind = allowKind;
-      }
-      if (appName) {
-        payload.appName = appName;
-      }
-      const result = await apiPost<{ ok?: boolean; error?: string }>(`/requests/${id}`, payload);
+      if (isStandalone()) {
+        const { mobileSigner } = await import('../lib/mobile-signer.js');
+        await mobileSigner.approve(id);
+      } else {
+        const payload: { password?: string; trustLevel?: TrustLevel; alwaysAllow?: boolean; allowKind?: number; appName?: string } = {};
+        if (requiresPassword) {
+          payload.password = password;
+        }
+        if (trustLevel) {
+          payload.trustLevel = trustLevel;
+        }
+        if (alwaysAllow) {
+          payload.alwaysAllow = alwaysAllow;
+        }
+        if (allowKind !== undefined) {
+          payload.allowKind = allowKind;
+        }
+        if (appName) {
+          payload.appName = appName;
+        }
+        const result = await apiPost<{ ok?: boolean; error?: string }>(`/requests/${id}`, payload);
 
-      if (!result?.ok) {
-        throw new Error(result?.error ?? 'Authorization failed');
+        if (!result?.ok) {
+          throw new Error(result?.error ?? 'Authorization failed');
+        }
       }
 
       setMeta(prev => ({ ...prev, [id]: { state: 'success', message: 'Approved' } }));
@@ -252,10 +269,15 @@ export function useRequests(): UseRequestsResult {
     setMeta(prev => ({ ...prev, [id]: { state: 'approving' } }));
 
     try {
-      const result = await apiDelete<{ ok?: boolean; error?: string }>(`/requests/${id}`);
+      if (isStandalone()) {
+        const { mobileSigner } = await import('../lib/mobile-signer.js');
+        await mobileSigner.deny(id);
+      } else {
+        const result = await apiDelete<{ ok?: boolean; error?: string }>(`/requests/${id}`);
 
-      if (!result?.ok) {
-        throw new Error(result?.error ?? 'Denial failed');
+        if (!result?.ok) {
+          throw new Error(result?.error ?? 'Denial failed');
+        }
       }
 
       setMeta(prev => ({ ...prev, [id]: { state: 'success', message: 'Denied' } }));

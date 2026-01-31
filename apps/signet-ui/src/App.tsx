@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import type { ConnectionInfo, TrustLevel, DisplayRequest } from '@signet/types';
 import { fetchConnectionInfo } from './lib/connection.js';
 import { ToastProvider, useToast } from './contexts/ToastContext.js';
-import { SettingsProvider, useSettings } from './contexts/SettingsContext.js';
+import { SettingsProvider, useSettings, isStandalone } from './contexts/SettingsContext.js';
 import { ServerEventsProvider, useServerEventsContext } from './contexts/ServerEventsContext.js';
 import { AppLayout } from './components/layout/AppLayout.js';
 import type { NavItem } from './components/layout/Sidebar.js';
@@ -37,6 +37,7 @@ function AppContent() {
   const [activeNav, setActiveNav] = useState<NavItem>('home');
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermissionState>('default');
   const [detailsModalRequest, setDetailsModalRequest] = useState<DisplayRequest | null>(null);
+  const [dismissedRequestIds, setDismissedRequestIds] = useState<Set<string>>(new Set());
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [connectAppModalOpen, setConnectAppModalOpen] = useState(false);
   const [showCreateKeyForm, setShowCreateKeyForm] = useState(false);
@@ -82,16 +83,22 @@ function AppContent() {
   }, []);
 
   // Request notification permission
-  const requestNotificationPermission = useCallback(async () => {
-    if (!('Notification' in window)) return;
-
+  const handleRequestNotificationPermission = useCallback(async () => {
+    // Check if permission is already granted via Capacitor plugin
+    // If not, request it
     try {
-      const permission = await Notification.requestPermission();
-      setNotificationPermission(permission as NotificationPermissionState);
+      const { requestNotificationPermission } = await import('./lib/notifications.js');
+      const granted = await requestNotificationPermission();
+      setNotificationPermission(granted ? 'granted' : 'denied');
     } catch (error) {
       console.error('Failed to request notification permission:', error);
     }
   }, []);
+
+  // Request permission on mount if default
+  useEffect(() => {
+    handleRequestNotificationPermission();
+  }, [handleRequestNotificationPermission]);
 
   // Global keyboard shortcut for Command Palette (Cmd+K / Ctrl+K)
   useEffect(() => {
@@ -160,6 +167,28 @@ function AppContent() {
   const handleAppNameChange = useCallback((requestId: string, appName: string) => {
     setAppNames(prev => ({ ...prev, [requestId]: appName }));
   }, []);
+
+  // Auto-open new requests in standalone mode
+  useEffect(() => {
+    if (isStandalone() && !detailsModalRequest && activeNav !== 'keys') {
+      const newestPending = requests.requests.find(r => r.state === 'pending' && !dismissedRequestIds.has(r.id));
+      if (newestPending) {
+        setDetailsModalRequest(newestPending);
+      }
+    }
+  }, [requests.requests, detailsModalRequest, activeNav, dismissedRequestIds]);
+
+  const handleCloseRequestDetails = useCallback(() => {
+    if (detailsModalRequest) {
+      const id = detailsModalRequest.id;
+      setDismissedRequestIds(prev => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+    }
+    setDetailsModalRequest(null);
+  }, [detailsModalRequest]);
 
   if (connectionLoading) {
     return (
@@ -418,7 +447,7 @@ function AppContent() {
         return (
           <SettingsPanel
             notificationPermission={notificationPermission}
-            onRequestNotificationPermission={requestNotificationPermission}
+            onRequestNotificationPermission={handleRequestNotificationPermission}
             keys={keys.keys}
           />
         );
@@ -455,7 +484,7 @@ function AppContent() {
       <RequestDetailsModal
         request={detailsModalRequest}
         open={detailsModalRequest !== null}
-        onClose={() => setDetailsModalRequest(null)}
+        onClose={handleCloseRequestDetails}
       />
 
       <Toast />

@@ -4,9 +4,13 @@ node_modules/
 # Build output
 dist/
 dist-electron/
+dist-server/
 desktop-debug.log
 build/
 .svelte-kit/
+*.app/
+Signet.app/
+resources/
 
 # Runtime config & secrets
 .env

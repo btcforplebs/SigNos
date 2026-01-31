@@ -4,6 +4,7 @@ import { apiGet } from '../lib/api-client.js';
 import { buildErrorMessage } from '../lib/formatters.js';
 import { useSSESubscription } from '../contexts/ServerEventsContext.js';
 import type { ServerEvent } from './useServerEvents.js';
+import { isStandalone } from '../contexts/SettingsContext.js';
 
 const MAX_DISPLAY_LOGS = 200;
 const INITIAL_FETCH_LIMIT = 100;
@@ -35,6 +36,10 @@ export function useLogs(): UseLogsResult {
 
     // Fetch initial logs
     const fetchLogs = useCallback(async () => {
+        if (isStandalone()) {
+            setLoading(false);
+            return;
+        }
         try {
             setLoading(true);
             setError(null);

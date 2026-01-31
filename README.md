@@ -1,8 +1,8 @@
-# Signet
+# Signet for Mac
 
 A modern NIP-46 remote signer for Nostr. Manages multiple keys securely with a web dashboard for administration. This project was originally forked from [nsecbunkerd](https://github.com/kind-0/nsecbunkerd), but has since received an extensive rewrite and now shares very little code with it.
 
-Signet separates the signing back end from the front end, and ships with a web UI. A companion Android app is [available on ZapStore](https://zapstore.dev/apps/naddr1qvzqqqr7pvpzpk4yr0kmdpv3xcalgsrldp7tj7yuc4p76qjtka7z95kgfky02s2nqq2hgetrdqhxwet9dd6x7umgdyh8x6t8dejhgck8a3z). Other platforms are possible and on the roadmap.
+Signet separates the signing back end from the front end and ships with a web UI that can be bundled as a native macOS app or deployed as a mobile client.
 
 ## Web UI Screenshots
 
@@ -11,7 +11,7 @@ Signet separates the signing back end from the front end, and ships with a web U
   <img src="signet-help.png" width="49%" alt="Signet Help" />
 </p>
 
-## Android Screenshots
+## Mobile (iOS) Client
 
 <p align="center">
   <img src="apps/signet-android/app/images/signet-android-1-home.png" width="32%" alt="Android Home" />
@@ -19,14 +19,34 @@ Signet separates the signing back end from the front end, and ships with a web U
   <img src="apps/signet-android/app/images/signet-android-3-settings.png" width="32%" alt="Android Settings" />
 </p>
 
-## Desktop Screenshots
+### 📱 Independent iOS Build
+Build and run the iOS client independently using Capacitor:
+
+**1. Prepare the UI:**
+```bash
+pnpm install
+pnpm run build
+```
+
+**2. Sync with Capacitor:**
+```bash
+cd apps/signet-ui
+npx cap sync ios
+```
+
+**3. Open in Xcode:**
+```bash
+npx cap open ios
+```
+
+## Desktop (macOS) App
 
 <p align="center">
   <img src="apps/signet-ui/public/icon-512x512.png" width="200" alt="Signet Desktop Icon" />
 </p>
 
-### 🍏 Mac App (Standalone)
-A native macOS application that bundles both the daemon and UI.
+### 🍏 macOS App (Standalone)
+A native macOS application that bundles both the daemon and UI into a single artifact.
 
 **1. Build the components:**
 ```bash

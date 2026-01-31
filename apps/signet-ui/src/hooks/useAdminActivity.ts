@@ -4,6 +4,7 @@ import { apiGet } from '../lib/api-client.js';
 import { buildErrorMessage } from '../lib/formatters.js';
 import { useSSESubscription } from '../contexts/ServerEventsContext.js';
 import type { ServerEvent } from './useServerEvents.js';
+import { isStandalone } from '../contexts/SettingsContext.js';
 
 const ADMIN_LIMIT = 20;
 
@@ -26,6 +27,11 @@ export function useAdminActivity(): UseAdminActivityResult {
   const [offset, setOffset] = useState(0);
 
   const fetchAdminEvents = useCallback(async (offsetVal: number, append: boolean) => {
+    if (isStandalone()) {
+      setEntries([]);
+      setHasMore(false);
+      return;
+    }
     const response = await apiGet<{ requests?: AdminActivityEntry[] }>(
       `/requests?limit=${ADMIN_LIMIT}&status=admin&offset=${offsetVal}`
     );

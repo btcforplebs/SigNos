@@ -19,6 +19,8 @@ interface UseDashboardResult {
   refresh: () => Promise<void>;
 }
 
+import { isStandalone } from '../contexts/SettingsContext.js';
+
 export function useDashboard(): UseDashboardResult {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [activity, setActivity] = useState<MixedActivityEntry[]>([]);
@@ -28,9 +30,23 @@ export function useDashboard(): UseDashboardResult {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await apiGet<DashboardData>('/dashboard');
-      setStats(response.stats);
-      setActivity(response.activity);
+      if (isStandalone()) {
+        const { mobileSigner } = await import('../lib/mobile-signer.js');
+        const keys = await mobileSigner.getKeys();
+        const requests = await mobileSigner.getRequests();
+        setStats({
+          totalKeys: keys.length,
+          activeKeys: keys.filter(k => k.status === 'online').length,
+          connectedApps: 0, // TODO: track connected apps in mobileSigner
+          pendingRequests: requests.length,
+          recentActivity24h: 0, // TODO: track activity in mobileSigner
+        });
+        setActivity([]);
+      } else {
+        const response = await apiGet<DashboardData>('/dashboard');
+        setStats(response.stats);
+        setActivity(response.activity);
+      }
       setError(null);
     } catch (err) {
       setError(buildErrorMessage(err, 'Unable to load dashboard'));
@@ -61,8 +77,11 @@ export function useDashboard(): UseDashboardResult {
     }
 
     // Handle activity updates for all request outcomes
-    if (event.type === 'request:auto_approved' || event.type === 'request:approved' || event.type === 'request:denied') {
-      setActivity(prev => [event.activity, ...prev].slice(0, 20));
+    if (event.type === 'request:created' || event.type === 'request:auto_approved' || event.type === 'request:approved' || event.type === 'request:denied') {
+      refresh();
+      if (event.type !== 'request:created') {
+        setActivity(prev => [event.activity, ...prev].slice(0, 20));
+      }
     }
 
     // Handle admin events (key lock/unlock, app suspend/unsuspend, daemon start)

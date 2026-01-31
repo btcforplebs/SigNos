@@ -175,6 +175,50 @@ export function SettingsPanel({
       </div>
 
       <div className={styles.section}>
+        <h3 className={styles.sectionTitle}>Network & Connection</h3>
+        <p className={styles.sectionDescription}>
+          Configure how Signet connects to the Nostr network and local daemon.
+        </p>
+
+        <div className={styles.setting}>
+          <div className={styles.settingInfo}>
+            <span className={styles.settingLabel}>Standalone Mode</span>
+            <span className={styles.settingDescription}>
+              Run NIP-46 logic directly in-app (Recommended for iOS)
+            </span>
+          </div>
+          <label className={styles.toggle}>
+            <input
+              type="checkbox"
+              checked={settings.isStandalone}
+              onChange={(e) => updateSettings({ isStandalone: e.target.checked })}
+              aria-label="Enable standalone mode"
+            />
+            <span className={styles.toggleSlider} />
+          </label>
+        </div>
+
+        {!settings.isStandalone && (
+          <div className={styles.setting}>
+            <div className={styles.settingInfo}>
+              <span className={styles.settingLabel}>Daemon URL</span>
+              <span className={styles.settingDescription}>
+                Remote Signet daemon address (e.g. http://192.168.1.5:3000)
+              </span>
+            </div>
+            <input
+              type="text"
+              value={settings.daemonUrl}
+              onChange={(e) => updateSettings({ daemonUrl: e.target.value })}
+              placeholder="http://localhost:3000"
+              className={styles.select}
+              style={{ paddingRight: 'var(--space-3)', backgroundImage: 'none', width: '200px' }}
+            />
+          </div>
+        )}
+      </div>
+
+      <div className={styles.section}>
         <h3 className={styles.sectionTitle}>Security & Alerts</h3>
 
         <div className={styles.setting}>
@@ -222,12 +266,11 @@ export function SettingsPanel({
                 <span className={styles.configLink}> · Configure</span>
               )}
             </span>
-            <span className={`${styles.settingDescription} ${
-              deadman.status?.panicTriggeredAt ? styles.settingDescriptionDanger :
+            <span className={`${styles.settingDescription} ${deadman.status?.panicTriggeredAt ? styles.settingDescriptionDanger :
               deadman.status?.enabled && deadman.urgency === 'critical' ? styles.settingDescriptionDanger :
-              deadman.status?.enabled && deadman.urgency === 'warning' ? styles.settingDescriptionWarning :
-              ''
-            }`}>
+                deadman.status?.enabled && deadman.urgency === 'warning' ? styles.settingDescriptionWarning :
+                  ''
+              }`}>
               {getDmsDescription()}
             </span>
           </div>
@@ -247,6 +290,28 @@ export function SettingsPanel({
             <span className={styles.unsupported}>No encrypted key</span>
           )}
         </div>
+
+        {settings.biometricType && (
+          <div className={styles.setting}>
+            <div className={styles.settingInfo}>
+              <span className={styles.settingLabel}>
+                Use {settings.biometricType === '1' || settings.biometricType === 'TOUCH_ID' ? 'Touch ID' : 'Face ID'}
+              </span>
+              <span className={styles.settingDescription}>
+                Unlock keys and approve requests with biometrics
+              </span>
+            </div>
+            <label className={styles.toggle}>
+              <input
+                type="checkbox"
+                checked={settings.biometricsEnabled}
+                onChange={(e) => updateSettings({ biometricsEnabled: e.target.checked })}
+                aria-label="Enable biometrics"
+              />
+              <span className={styles.toggleSlider} />
+            </label>
+          </div>
+        )}
       </div>
 
       <div className={styles.section}>
@@ -356,7 +421,7 @@ function EnableDmsModal({
       setValue(init.value);
       setUnit(init.unit);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   if (!open) return null;
@@ -455,7 +520,7 @@ function ConfigDmsModal({
       setSelectedKey(keys[0]?.name ?? '');
       setPassphrase('');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   if (!open) return null;
