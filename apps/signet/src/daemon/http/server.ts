@@ -37,6 +37,7 @@ export interface HealthStatus {
     sseClients: number;
     lastPoolReset: string | null;
     caches?: Record<string, { size: number; hits: number; misses: number; evictions: number }>;
+    logBuffer?: { entries: number; maxEntries: number; estimatedKB: number };
 }
 
 export interface HttpServerConfig {
@@ -55,6 +56,8 @@ export interface HttpServerConfig {
     eventService: EventService;
     relayService: RelayService;
     getHealthStatus?: () => HealthStatus;
+    getTrustScore?: (url: string) => number | null;
+    getTrustScoresForRelays?: (urls: string[]) => Promise<Map<string, number | null>>;
 }
 
 export class HttpServer {
@@ -155,6 +158,8 @@ export class HttpServer {
             connectionManager: this.config.connectionManager,
             nostrConfig: this.config.nostrConfig,
             relayService: this.config.relayService,
+            getTrustScore: this.config.getTrustScore,
+            getTrustScoresForRelays: this.config.getTrustScoresForRelays,
         }, { auth: [authMiddleware], csrf: [csrfMiddleware] });
 
         // Request routes (state-changing, needs CSRF)

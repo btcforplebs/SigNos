@@ -12,6 +12,7 @@ import { TTLCache, getAllCacheStats } from './lib/ttl-cache.js';
 import { extractEventKind } from './lib/parse.js';
 import { toErrorMessage } from './lib/errors.js';
 import { logger, setLogEntryEmitter } from './lib/logger.js';
+import { logBuffer } from './lib/log-buffer.js';
 import {
     KeyService,
     RequestService,
@@ -23,12 +24,14 @@ import {
     setEventService,
     getEventService,
     setDashboardService,
+    setHealthStatusGetter,
     emitCurrentStats,
     getConnectionTokenService,
     AdminCommandService,
     initNostrconnectService,
     initDeadManSwitchService,
     type DeadManSwitchService,
+    TrustScoreService,
 } from './services/index.js';
 import { requestRepository, logRepository } from './repositories/index.js';
 import { adminLogRepository } from './repositories/admin-log-repository.js';
@@ -79,6 +82,7 @@ const LOG_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 // Health monitoring constants
 const HEALTH_LOG_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+const HEALTH_SSE_INTERVAL_MS = 10 * 1000; // 10 seconds - real-time health updates via SSE
 
 // Rate limiting for auto-approval logging: 1 log per method per 5 seconds per app
 // Using TTLCache ensures automatic cleanup of old entries
@@ -228,6 +232,7 @@ class Daemon {
     private readonly eventService: EventService;
     private readonly adminCommandService?: AdminCommandService;
     private readonly deadManSwitchService: DeadManSwitchService;
+    private readonly trustScoreService: TrustScoreService;
     private readonly backends: Map<string, Nip46Backend> = new Map();
     private httpServer?: HttpServer;
     private lastPoolReset: Date | null = null;
@@ -275,6 +280,7 @@ class Daemon {
         // Initialize event service for real-time updates
         this.eventService = new EventService();
         setEventService(this.eventService);
+        setHealthStatusGetter(() => this.getHealthStatus());
 
         // Wire up logger to emit SSE events for real-time log streaming
         setLogEntryEmitter((entry) => this.eventService.emitLogEntry(entry));
@@ -304,6 +310,9 @@ class Daemon {
             daemonVersion,
             // Warning DM callback will be set up after admin command service starts
         });
+
+        // Initialize trust score service for relay reputation
+        this.trustScoreService = new TrustScoreService(config.nostr.relays);
 
         // Initialize nostrconnect service for client-initiated connections
         const nostrconnectService = initNostrconnectService({
@@ -384,6 +393,9 @@ class Daemon {
         // Start dead man's switch service
         await this.deadManSwitchService.start();
 
+        // Start trust score service (fetches relay trust scores)
+        await this.trustScoreService.start();
+
         this.startCleanupTasks();
 
         // Log daemon_started event
@@ -410,6 +422,11 @@ class Daemon {
         setInterval(() => {
             this.logHealthStatus();
         }, HEALTH_LOG_INTERVAL_MS);
+
+        // Schedule periodic health SSE updates for real-time monitoring
+        setInterval(() => {
+            this.eventService.emitHealthUpdated(this.getHealthStatus());
+        }, HEALTH_SSE_INTERVAL_MS);
 
         // Log initial health status after a short delay
         setTimeout(() => {
@@ -439,6 +456,7 @@ class Daemon {
         const keyStats = this.keyService.getKeyStats();
         const relayConnected = this.pool.getConnectedCount();
         const relayTotal = this.pool.getRelays().length;
+        const logStats = logBuffer.getStats();
 
         return {
             status: relayConnected > 0 ? 'ok' : 'degraded',
@@ -460,6 +478,11 @@ class Daemon {
             sseClients: this.eventService.getSubscriberCount(),
             lastPoolReset: this.lastPoolReset?.toISOString() ?? null,
             caches: getAllCacheStats(),
+            logBuffer: {
+                entries: logStats.entries,
+                maxEntries: logStats.maxEntries,
+                estimatedKB: Math.round(logStats.estimatedBytes / 1024),
+            },
         };
     }
 
@@ -612,6 +635,8 @@ class Daemon {
             eventService: this.eventService,
             relayService: this.relayService,
             getHealthStatus: () => this.getHealthStatus(),
+            getTrustScore: (url) => this.trustScoreService.getScore(url),
+            getTrustScoresForRelays: (urls) => this.trustScoreService.getScoresForRelays(urls),
         });
 
         await this.httpServer.start();
@@ -636,6 +661,7 @@ class Daemon {
                 connected: s.connected,
                 lastConnected: s.lastConnected?.toISOString() ?? null,
                 lastDisconnected: s.lastDisconnected?.toISOString() ?? null,
+                trustScore: this.trustScoreService.getScore(s.url),
             })),
         });
     }
