@@ -29,6 +29,7 @@ export type ServerEvent =
     | { type: 'apps:updated' }
     | { type: 'key:created'; key: KeyInfo }
     | { type: 'key:unlocked'; keyName: string }
+    | { type: 'key:locked'; keyName: string }
     | { type: 'key:deleted'; keyName: string }
     | { type: 'key:renamed'; oldName: string; newName: string }
     | { type: 'key:updated'; keyName: string }
@@ -263,17 +264,30 @@ export function setEventService(service: EventService): void {
 /**
  * Helper to fetch current stats and emit stats:updated event.
  * Call this after any operation that changes dashboard stats.
+ * Debounced to prevent spamming clients when multiple operations happen in quick succession.
  */
+let statsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+const STATS_DEBOUNCE_MS = 150;
+
 export async function emitCurrentStats(): Promise<void> {
-    try {
-        const dashboardService = getDashboardService();
-        const eventService = getEventService();
-        const stats = await dashboardService.getStats();
-        eventService.emitStatsUpdated(stats);
-    } catch (error) {
-        // Log but don't throw - stats emission is not critical
-        debug('Failed to emit current stats: %O', error);
+    // Clear any pending emission
+    if (statsDebounceTimer) {
+        clearTimeout(statsDebounceTimer);
     }
+
+    // Schedule new emission after debounce period
+    statsDebounceTimer = setTimeout(async () => {
+        statsDebounceTimer = null;
+        try {
+            const dashboardService = getDashboardService();
+            const eventService = getEventService();
+            const stats = await dashboardService.getStats();
+            eventService.emitStatsUpdated(stats);
+        } catch (error) {
+            // Log but don't throw - stats emission is not critical
+            debug('Failed to emit current stats: %O', error);
+        }
+    }, STATS_DEBOUNCE_MS);
 }
 
 // Health status getter - set by Daemon on initialization

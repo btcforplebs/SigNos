@@ -320,7 +320,7 @@ fun ActivityScreen() {
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = error!!,
+                        text = error ?: "Unknown error",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary
                     )
@@ -353,7 +353,7 @@ fun ActivityScreen() {
                                     modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                                 )
                             }
-                            items(groupActivity) { activity ->
+                            items(groupActivity, key = { it.id }) { activity ->
                                 AdminActivityCard(activity = activity)
                             }
                         }
@@ -387,7 +387,15 @@ fun ActivityScreen() {
                                     modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                                 )
                             }
-                            items(groupItems) { item ->
+                            items(
+                                groupItems,
+                                key = { item ->
+                                    when (item) {
+                                        is ActivityItem.Request -> "req-${item.request.id}"
+                                        is ActivityItem.Admin -> "admin-${item.entry.id}"
+                                    }
+                                }
+                            ) { item ->
                                 when (item) {
                                     is ActivityItem.Request -> RequestCard(
                                         request = item.request,
@@ -425,7 +433,7 @@ fun ActivityScreen() {
                                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                             )
                         }
-                        items(groupRequests) { request ->
+                        items(groupRequests, key = { it.id }) { request ->
                             RequestCard(
                                 request = request,
                                 onClick = { selectRequest(request) }

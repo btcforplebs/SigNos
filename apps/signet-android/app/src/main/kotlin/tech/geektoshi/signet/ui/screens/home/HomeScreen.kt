@@ -313,7 +313,7 @@ fun HomeScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = error!!,
+                    text = error ?: "Unknown error",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
@@ -410,7 +410,7 @@ fun HomeScreen(
                     )
                 }
             } else {
-                items(pendingRequests) { request ->
+                items(pendingRequests, key = { it.id }) { request ->
                     PendingRequestCard(
                         request = request,
                         onClick = { selectedRequest = request }
@@ -438,7 +438,7 @@ fun HomeScreen(
                     )
                 }
             } else {
-                items(activities.take(5)) { activity ->
+                items(activities.take(5), key = { it.id }) { activity ->
                     ActivityCard(activity = activity)
                 }
             }

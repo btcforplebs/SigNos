@@ -583,7 +583,7 @@ fun ConnectAppSheet(
 
                     if (parseError != null) {
                         Text(
-                            text = parseError!!,
+                            text = parseError ?: "Unknown error",
                             style = MaterialTheme.typography.bodySmall,
                             color = Danger
                         )

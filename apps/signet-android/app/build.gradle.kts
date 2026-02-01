@@ -101,6 +101,9 @@ dependencies {
     // Biometric
     implementation(libs.androidx.biometric)
 
+    // Encrypted SharedPreferences
+    implementation(libs.androidx.security.crypto)
+
     // Splash screen
     implementation(libs.androidx.splashscreen)
 

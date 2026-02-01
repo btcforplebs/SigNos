@@ -765,11 +765,10 @@ export class AdminCommandService {
             case 'locked':
                 return `✓ Locked key '${result.keyName}'`;
             case 'not_found':
-                return `⚠ Key '${result.keyName}' not found`;
             case 'already_locked':
-                return `⚠ Key '${result.keyName}' is already locked`;
             case 'not_encrypted':
-                return `⚠ Cannot lock '${result.keyName}' - key is not encrypted`;
+                // Generic message prevents key enumeration attacks
+                return `⚠ Could not lock key '${result.keyName}'`;
         }
     }
 
@@ -783,12 +782,9 @@ export class AdminCommandService {
             a.userPubkey.toLowerCase().startsWith(appName.toLowerCase())
         );
 
-        if (!app) {
-            return `⚠ App '${appName}' not found`;
-        }
-
-        if (app.suspendedAt) {
-            return `⚠ App '${app.description || app.userPubkey.slice(0, 8)}' is already suspended`;
+        // Generic message prevents app enumeration attacks
+        if (!app || app.suspendedAt) {
+            return `⚠ Could not suspend app '${appName}'`;
         }
 
         try {
@@ -800,7 +796,8 @@ export class AdminCommandService {
             });
             return `✓ Suspended app '${app.description || app.userPubkey.slice(0, 8)}'`;
         } catch (error) {
-            return `⚠ Failed to suspend app: ${toErrorMessage(error)}`;
+            // Generic message prevents revealing internal errors
+            return `⚠ Could not suspend app '${appName}'`;
         }
     }
 
@@ -814,12 +811,9 @@ export class AdminCommandService {
             a.userPubkey.toLowerCase().startsWith(appName.toLowerCase())
         );
 
-        if (!app) {
-            return `⚠ App '${appName}' not found`;
-        }
-
-        if (!app.suspendedAt) {
-            return `⚠ App '${app.description || app.userPubkey.slice(0, 8)}' is not suspended`;
+        // Generic message prevents app enumeration attacks
+        if (!app || !app.suspendedAt) {
+            return `⚠ Could not resume app '${appName}'`;
         }
 
         try {
@@ -831,7 +825,8 @@ export class AdminCommandService {
             });
             return `✓ Resumed app '${app.description || app.userPubkey.slice(0, 8)}'`;
         } catch (error) {
-            return `⚠ Failed to resume app: ${toErrorMessage(error)}`;
+            // Generic message prevents revealing internal errors
+            return `⚠ Could not resume app '${appName}'`;
         }
     }
 

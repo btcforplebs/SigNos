@@ -237,6 +237,12 @@ class Daemon {
     private httpServer?: HttpServer;
     private lastPoolReset: Date | null = null;
 
+    // Interval tracking for graceful shutdown
+    private cleanupIntervalId?: ReturnType<typeof setInterval>;
+    private healthLogIntervalId?: ReturnType<typeof setInterval>;
+    private healthSseIntervalId?: ReturnType<typeof setInterval>;
+    private isShuttingDown = false;
+
     constructor(config: DaemonBootstrapConfig) {
         this.config = config;
 
@@ -406,6 +412,16 @@ class Daemon {
         });
         this.eventService.emitAdminEvent(adminLogRepository.toActivityEntry(adminLog));
 
+        // Register signal handlers for graceful shutdown
+        const handleShutdown = async (signal: string) => {
+            logger.info('Received shutdown signal', { signal });
+            await this.shutdown();
+            process.exit(0);
+        };
+
+        process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+        process.on('SIGINT', () => handleShutdown('SIGINT'));
+
         logger.info('Signet ready to serve requests');
     }
 
@@ -413,18 +429,18 @@ class Daemon {
         // Run cleanup immediately on startup
         this.runCleanup();
 
-        // Schedule periodic cleanup
-        setInterval(() => {
+        // Schedule periodic cleanup (store ID for graceful shutdown)
+        this.cleanupIntervalId = setInterval(() => {
             this.runCleanup();
         }, CLEANUP_INTERVAL_MS);
 
-        // Schedule periodic health logging
-        setInterval(() => {
+        // Schedule periodic health logging (store ID for graceful shutdown)
+        this.healthLogIntervalId = setInterval(() => {
             this.logHealthStatus();
         }, HEALTH_LOG_INTERVAL_MS);
 
-        // Schedule periodic health SSE updates for real-time monitoring
-        setInterval(() => {
+        // Schedule periodic health SSE updates for real-time monitoring (store ID for graceful shutdown)
+        this.healthSseIntervalId = setInterval(() => {
             this.eventService.emitHealthUpdated(this.getHealthStatus());
         }, HEALTH_SSE_INTERVAL_MS);
 
@@ -432,6 +448,44 @@ class Daemon {
         setTimeout(() => {
             this.logHealthStatus();
         }, 30000); // 30 seconds after startup
+    }
+
+    private async shutdown(): Promise<void> {
+        if (this.isShuttingDown) return;
+        this.isShuttingDown = true;
+
+        logger.info('Shutting down gracefully...');
+
+        // Clear intervals
+        if (this.cleanupIntervalId) clearInterval(this.cleanupIntervalId);
+        if (this.healthLogIntervalId) clearInterval(this.healthLogIntervalId);
+        if (this.healthSseIntervalId) clearInterval(this.healthSseIntervalId);
+
+        // Stop all backends
+        for (const [name, backend] of this.backends) {
+            logger.info('Stopping backend', { key: name });
+            backend.stop();
+        }
+        this.backends.clear();
+
+        // Stop services in reverse order of startup
+        this.adminCommandService?.stop();
+        this.deadManSwitchService.stop();
+        this.trustScoreService.stop();
+        this.relayService.stop();
+        this.publishLogger.stop();
+        this.subscriptionManager.stop();
+        this.pool.close();
+
+        // Close HTTP server
+        if (this.httpServer) {
+            await this.httpServer.getFastify().close();
+        }
+
+        // Disconnect database
+        await prisma.$disconnect();
+
+        logger.info('Shutdown complete');
     }
 
     private logHealthStatus(): void {

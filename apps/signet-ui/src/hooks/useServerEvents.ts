@@ -74,6 +74,8 @@ export function useServerEvents(options: UseServerEventsOptions = {}): UseServer
   const lastEventTimeRef = useRef<number>(Date.now());
   const hasConnectedBeforeRef = useRef(false);
   const onEventRef = useRef(onEvent);
+  // Track reconnection state synchronously to prevent race conditions
+  const isReconnectingRef = useRef(false);
 
   // Keep the callback ref up to date
   useEffect(() => {
@@ -99,6 +101,7 @@ export function useServerEvents(options: UseServerEventsOptions = {}): UseServer
       eventSource.onopen = () => {
         const isReconnection = hasConnectedBeforeRef.current;
         hasConnectedBeforeRef.current = true;
+        isReconnectingRef.current = false; // Clear reconnecting flag synchronously
 
         setConnected(true);
         setError(null);
@@ -140,6 +143,7 @@ export function useServerEvents(options: UseServerEventsOptions = {}): UseServer
         }
 
         // Exponential backoff for reconnect
+        isReconnectingRef.current = true; // Set synchronously to prevent race conditions
         setReconnecting(true);
         setError('Connection lost. Reconnecting...');
 
@@ -156,7 +160,7 @@ export function useServerEvents(options: UseServerEventsOptions = {}): UseServer
           connect();
         }, reconnectDelayRef.current);
       };
-    } catch (err) {
+    } catch {
       setError('Failed to connect to event stream');
       setConnected(false);
     }
@@ -173,6 +177,7 @@ export function useServerEvents(options: UseServerEventsOptions = {}): UseServer
       eventSourceRef.current = null;
     }
 
+    isReconnectingRef.current = false;
     setConnected(false);
     setReconnecting(false);
   }, []);
@@ -195,8 +200,11 @@ export function useServerEvents(options: UseServerEventsOptions = {}): UseServer
     if (!enabled) return;
 
     heartbeatIntervalRef.current = setInterval(() => {
-      if (connected && Date.now() - lastEventTimeRef.current > HEARTBEAT_TIMEOUT) {
+      // Check both connected state and that we're not already reconnecting
+      // Using ref for reconnecting check to avoid race conditions with async state updates
+      if (connected && !isReconnectingRef.current && Date.now() - lastEventTimeRef.current > HEARTBEAT_TIMEOUT) {
         console.warn('SSE heartbeat timeout, reconnecting...');
+        isReconnectingRef.current = true; // Prevent multiple reconnection attempts
         connect();
       }
     }, HEARTBEAT_CHECK_INTERVAL);

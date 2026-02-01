@@ -15,7 +15,6 @@ interface KeyCardProps {
   unlocking: string | null;  // Key name being unlocked, or null
   locking: string | null;    // Key name being locked, or null
   renaming: boolean;
-  settingPassphrase: boolean;
   encrypting: boolean;
   migrating: boolean;
   exporting: boolean;
@@ -23,7 +22,6 @@ interface KeyCardProps {
   onUnlock: (passphrase: string) => Promise<boolean>;
   onLock: () => void;
   onRename: (newName: string) => Promise<boolean>;
-  onSetPassphrase: (passphrase: string) => Promise<boolean>;
   onEncrypt: (encryption: 'nip49' | 'legacy', passphrase: string, confirmPassphrase: string) => Promise<boolean>;
   onMigrate: (passphrase: string) => Promise<boolean>;
   onExport: (format: 'nsec' | 'nip49', currentPassphrase?: string, exportPassphrase?: string, confirmExportPassphrase?: string) => Promise<{ key?: string; format?: 'nsec' | 'ncryptsec' } | null>;
@@ -40,7 +38,6 @@ export function KeyCard({
   unlocking,
   locking,
   renaming,
-  settingPassphrase,
   encrypting,
   migrating,
   exporting,
@@ -48,7 +45,6 @@ export function KeyCard({
   onUnlock,
   onLock,
   onRename,
-  onSetPassphrase,
   onEncrypt,
   onMigrate,
   onExport,
@@ -63,10 +59,6 @@ export function KeyCard({
   const [isRenaming, setIsRenaming] = useState(false);
   const [editName, setEditName] = useState('');
 
-  // Set passphrase state (legacy - for unencrypted keys that already exist)
-  const [isSettingPassphrase, setIsSettingPassphrase] = useState(false);
-  const [newPassphrase, setNewPassphrase] = useState('');
-  const [confirmPassphrase, setConfirmPassphrase] = useState('');
 
   // Encrypt state (for unencrypted keys)
   const [isEncrypting, setIsEncrypting] = useState(false);
@@ -128,29 +120,6 @@ export function KeyCard({
     if (success) {
       setIsRenaming(false);
       setEditName('');
-    }
-  };
-
-  const startSetPassphrase = () => {
-    setIsSettingPassphrase(true);
-    setNewPassphrase('');
-    setConfirmPassphrase('');
-    onClearError();
-  };
-
-  const cancelSetPassphrase = () => {
-    setIsSettingPassphrase(false);
-    setNewPassphrase('');
-    setConfirmPassphrase('');
-  };
-
-  const handleSetPassphrase = async () => {
-    if (!newPassphrase.trim() || newPassphrase !== confirmPassphrase) return;
-    const success = await onSetPassphrase(newPassphrase);
-    if (success) {
-      setIsSettingPassphrase(false);
-      setNewPassphrase('');
-      setConfirmPassphrase('');
     }
   };
 
@@ -261,9 +230,6 @@ export function KeyCard({
       setUnlockPassphrase('');
       setIsRenaming(false);
       setEditName('');
-      setIsSettingPassphrase(false);
-      setNewPassphrase('');
-      setConfirmPassphrase('');
       setIsEncrypting(false);
       setEncryptPassphrase('');
       setEncryptConfirmPassphrase('');
