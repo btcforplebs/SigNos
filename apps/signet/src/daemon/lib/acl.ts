@@ -56,7 +56,9 @@ const aclCache = new TTLCache<CacheEntry>('acl-cache', {
 });
 
 function getCacheKey(keyName: string, remotePubkey: string): string {
-    return `${keyName}:${remotePubkey}`;
+    // Use null byte as delimiter to prevent collision attacks
+    // (e.g., keyName="a:b" + pubkey="c" vs keyName="a" + pubkey="b:c")
+    return `${keyName}\x00${remotePubkey}`;
 }
 
 function getCachedEntry(keyName: string, remotePubkey: string): CacheEntry | null {
@@ -84,7 +86,7 @@ export function invalidateAclCache(keyName: string, remotePubkey: string): void 
  * Call this when revoking all apps for a key.
  */
 export function invalidateAclCacheForKey(keyName: string): void {
-    const prefix = `${keyName}:`;
+    const prefix = `${keyName}\x00`;
     aclCache.deleteMatching((key) => key.startsWith(prefix));
 }
 

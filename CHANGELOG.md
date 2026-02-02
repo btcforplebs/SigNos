@@ -1,5 +1,132 @@
 # Changelog
 
+## [1.9.0]
+
+### Added
+- **React 19 error handlers**: Enhanced debugging with `onCaughtError` and `onUncaughtError` handlers in main.tsx
+  - Errors now log with component stack traces for easier debugging
+  - Catches both caught (error boundary) and uncaught errors
+- **Instant approval feedback**: Implemented `useOptimistic` hook for approve/deny actions
+  - Requests show approved/denied state immediately before API response
+  - Falls back gracefully if API call fails
+  - Wrapped in `startTransition` for proper React 19 scheduling
+- **Graceful shutdown**: Daemon now handles SIGTERM/SIGINT signals properly
+  - All services stopped in correct order (backends, subscriptions, relays, HTTP)
+  - Database connection closed cleanly
+  - Background intervals cleared to prevent process hanging
+
+### Security
+- **Kill switch enumeration prevention**: Generic error messages for lock/suspend/resume commands
+  - Prevents attackers from discovering valid key/app names via kill switch DMs
+  - Success messages still include entity names for usability
+- **Minimum passphrase requirement**: Passphrases must be at least 8 characters
+  - Prevents weak single-character or trivial passphrases
+  - Empty passphrase still allowed for unencrypted keys
+  - Validation enforced in daemon, web UI, and Android app
+- **ACL cache key collision fix**: Changed delimiter from `:` to null byte
+  - Prevents theoretical cache collision if key name contains `:`
+- **Android: Encrypted daemon URL storage**: Daemon URL now stored using EncryptedSharedPreferences
+  - Uses Android Keystore for AES-256-GCM encryption
+  - Automatic migration from unencrypted DataStore on first launch
+- **Android: Disabled cloud backup**: Set `android:allowBackup="false"` in manifest
+  - Prevents daemon URL and settings from being backed up to Google Drive
+
+### Improved
+- **TTL update interval**: Reduced from 1s to 5s in request list
+  - 80% reduction in unnecessary re-renders
+  - TTL countdown still accurate within 5 seconds
+- **Stats emission debouncing**: Added 150ms debounce to dashboard stats updates
+  - Reduces database queries when multiple operations happen in quick succession
+  - Prevents SSE spam to connected clients
+- **Inline SSE event handling**: Request list updates handled without API calls
+  - New requests prepended directly from SSE event data
+  - Approved/denied/expired requests removed inline
+  - Eliminates waterfall API calls when multiple events arrive
+- **SSE reconnection race fix**: Prevent multiple simultaneous reconnection attempts
+  - Added synchronous ref tracking to avoid async state race conditions
+  - Heartbeat handler now checks reconnection state before triggering
+  - Eliminates UI flicker and wasted resources from duplicate reconnects
+
+### Android
+- **Bug fixes**:
+  - Replaced force unwrap (`!!`) operators with safe calls across all screens
+  - Added exception handling for SSE event collection in foreground service
+  - Fixed EventBus connect() race condition with synchronized block
+  - Changed connection state flag to AtomicBoolean for thread safety
+- **Resource usage improvements**:
+  - Added SSE retry limit (10 consecutive failures before stopping)
+  - Debounced notification updates (500ms) to reduce system overhead
+  - Countdown ticker only updates when dead man switch is active
+- **Performance improvements**:
+  - Added LazyColumn keys to all list screens for efficient diffing
+  - Moved SSE type extraction regex to class property (compiled once)
+
+### Upgraded
+- **React 18 → 19**: Major framework upgrade with performance improvements
+  - Automatic batching improvements, optimized rendering
+  - New Actions API and hooks available for future enhancements
+  - ~32% reduction in render cycles during heavy updates
+- **Vite 5 → 7**: Build tooling upgrade
+  - Faster builds with improved bundling
+  - New `baseline-widely-available` browser target for better compatibility
+  - Foundation for future Rolldown bundler integration
+- **@vitejs/plugin-react 4 → 5**: Updated for Vite 7 compatibility
+- **lucide-react**: Updated for React 19 type compatibility
+
+---
+
+## [1.8.4]
+
+### Fixed
+- **Memory leak investigation**: Updated nostr-tools from 2.19.4 to 2.22.1 across daemon and UI
+  - SimplePool WebSocket connection management improvements in newer version
+  - Monitoring for memory usage improvements
+- **TypeScript strict mode fixes**: Fixed type errors in daemon that were masked by skipLibCheck
+  - Added missing type exports to @signet/types (`KillSwitchConfig`, `KillSwitchDmType`, `RelayTrustScoreResponse`)
+  - Fixed `key:locked` event type missing from SSE event union
+  - Updated tsconfig target to ES2022 for `Promise.any` support
+  - Fixed Fastify route handler type mismatches with proper type assertions
+  - Fixed `ApprovalType` and `TrustLevel` type narrowing issues
+  - Replaced deprecated Fastify `PreHandlerHook` import with local `PreHandler` type
+
+### Security
+- **Secure default binding**: Changed default `authHost` from `0.0.0.0` to `127.0.0.1`
+  - API now binds to localhost only by default, preventing accidental network exposure
+  - Users who need network access can explicitly set `authHost: "0.0.0.0"` in config
+- **Passphrase DoS mitigation**: Reduced `MAX_PASSPHRASE_LENGTH` from 256 to 128 characters
+  - Prevents potential DoS via expensive bcrypt hashing of very long passphrases
+  - 128 characters is more than sufficient for any reasonable passphrase
+
+---
+
+## [1.8.3]
+
+### Improved
+- **ESLint 9 migration**: Upgraded from ESLint 8 to ESLint 9 with flat config format
+  - Updated typescript-eslint to v8 unified package
+  - Configured underscore-prefix pattern for intentionally unused variables
+- **Added typecheck script**: Run `pnpm typecheck` to catch type errors early
+  - Added to both daemon and UI packages
+  - Root-level script runs typecheck on all packages
+- **Dead code cleanup**: Removed unused code paths for cleaner codebase
+  - Removed unused `settingPassphrase`/`onSetPassphrase` props from KeyCard/KeysPanel
+  - Removed unused bulk selection props from RequestsPanel (functionality preserved in hook)
+  - Removed unused `connectionInfo` state from App.tsx
+  - Deleted orphaned Header component and related files
+  - Removed unused `context` parameter from error formatter functions
+
+---
+
+## [1.8.2]
+
+### Dependencies
+- **Daemon**: Updated Prisma 7.2.0→7.3.0, Fastify 5.6.2→5.7.2, @fastify/view 10.0.2→11.1.1, ws 8.18.3→8.19.0, better-sqlite3 12.5.0→12.6.2, eventemitter3 5.0.1→5.0.4, websocket-polyfill 0.0.3→1.0.0, yargs 17.7.2→18.0.0, eslint-config-prettier 8.10.2→10.1.8, vitest 4.0.16→4.0.18, @types/node 20.x→25.x
+- **Daemon**: Removed unused dependencies: @scure/base (provided by nostr-tools), @inquirer/prompts, @inquirer/password, dotenv (provided by Prisma)
+- **UI**: Updated Express 4.21.2→5.2.1, ESLint 9.38.0→9.39.2, eslint-plugin-react-hooks 5.2.0→7.0.1, vitest 4.0.16→4.0.18, lucide-react 0.562.0→0.563.0, @testing-library/react 16.3.1→16.3.2, focus-trap-react 11.0.4→12.0.0, globals 16.5.0→17.3.0, @types/node 20.x→25.x
+- **Requires Node.js 20.19+** due to ESM-only dependencies (yargs 18, @scure/base 2.0)
+
+---
+
 ## [1.8.1]
 
 ### Added

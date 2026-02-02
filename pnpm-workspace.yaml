@@ -4,5 +4,4 @@ packages:
   - apps/desktop
   - packages/*
 
-onlyBuiltDependencies:
-  - prisma
+onlyBuiltDependencies: '["@prisma/engines", "better-sqlite3"]'

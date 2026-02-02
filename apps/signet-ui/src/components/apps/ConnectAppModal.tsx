@@ -198,6 +198,27 @@ export function ConnectAppModal({
     }
   }, [bunkerUri]);
 
+  const handleClose = useCallback(() => {
+    // Reset NostrConnect state
+    setUri('');
+    setAppName('');
+    setSelectedKeyName('');
+    setTrustLevel('reasonable');
+    setError(null);
+    setShowScanner(false);
+    setDetailsExpanded(false);
+    setRelayScores({});
+    setLoadingScores(false);
+    // Reset Bunker state
+    setBunkerUri(null);
+    setBunkerError(null);
+    setExpiresAt(null);
+    setCopied(false);
+    // Reset tab
+    setActiveTab('bunker');
+    onClose();
+  }, [onClose]);
+
   const handleConnect = useCallback(async () => {
     if (!parsedData || !selectedKeyName) return;
 
@@ -228,7 +249,7 @@ export function ConnectAppModal({
     } finally {
       setConnecting(false);
     }
-  }, [parsedData, selectedKeyName, trustLevel, uri, appName, onSuccess]);
+  }, [parsedData, selectedKeyName, trustLevel, uri, appName, onSuccess, handleClose]);
 
   // Handle QR scan result
   const handleQRScan = useCallback((result: string) => {
@@ -240,27 +261,6 @@ export function ConnectAppModal({
   const qrFilter = useCallback((result: string) => {
     return result.startsWith('nostrconnect://');
   }, []);
-
-  const handleClose = useCallback(() => {
-    // Reset NostrConnect state
-    setUri('');
-    setAppName('');
-    setSelectedKeyName('');
-    setTrustLevel('reasonable');
-    setError(null);
-    setShowScanner(false);
-    setDetailsExpanded(false);
-    setRelayScores({});
-    setLoadingScores(false);
-    // Reset Bunker state
-    setBunkerUri(null);
-    setBunkerError(null);
-    setExpiresAt(null);
-    setCopied(false);
-    // Reset tab
-    setActiveTab('bunker');
-    onClose();
-  }, [onClose]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

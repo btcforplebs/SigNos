@@ -20,7 +20,6 @@ interface KeysPanelProps {
   locking: string | null;
   lockingAll: boolean;
   renaming: boolean;
-  settingPassphrase: boolean;
   encrypting: boolean;
   migrating: boolean;
   exporting: boolean;
@@ -31,7 +30,6 @@ interface KeysPanelProps {
   onLockKey: (keyName: string) => Promise<boolean>;
   onLockAllKeys: () => Promise<{ success: boolean; lockedCount?: number }>;
   onRenameKey: (keyName: string, newName: string) => Promise<boolean>;
-  onSetPassphrase: (keyName: string, passphrase: string) => Promise<boolean>;
   onEncryptKey: (keyName: string, encryption: 'nip49' | 'legacy', passphrase: string, confirmPassphrase: string) => Promise<boolean>;
   onMigrateKey: (keyName: string, passphrase: string) => Promise<boolean>;
   onExportKey: (keyName: string, format: 'nsec' | 'nip49', currentPassphrase?: string, exportPassphrase?: string, confirmExportPassphrase?: string) => Promise<{ key?: string; format?: 'nsec' | 'ncryptsec' } | null>;
@@ -50,7 +48,6 @@ export function KeysPanel({
   locking,
   lockingAll,
   renaming,
-  settingPassphrase,
   encrypting,
   migrating,
   exporting,
@@ -61,7 +58,6 @@ export function KeysPanel({
   onLockKey,
   onLockAllKeys,
   onRenameKey,
-  onSetPassphrase,
   onEncryptKey,
   onMigrateKey,
   onExportKey,
@@ -89,6 +85,7 @@ export function KeysPanel({
     [keys]
   );
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const now = useMemo(() => Date.now(), [keys]);
 
   const getAppsForKey = (keyName: string): ConnectedApp[] => {
@@ -229,7 +226,6 @@ export function KeysPanel({
               unlocking={unlocking}
               locking={locking}
               renaming={renaming}
-              settingPassphrase={settingPassphrase}
               encrypting={encrypting}
               migrating={migrating}
               exporting={exporting}
@@ -237,7 +233,6 @@ export function KeysPanel({
               onUnlock={(passphrase) => onUnlockKey(key.name, passphrase)}
               onLock={() => onLockKey(key.name)}
               onRename={(newName) => handleRename(key.name, newName)}
-              onSetPassphrase={(passphrase) => onSetPassphrase(key.name, passphrase)}
               onEncrypt={(encryption, passphrase, confirmPassphrase) => onEncryptKey(key.name, encryption, passphrase, confirmPassphrase)}
               onMigrate={(passphrase) => onMigrateKey(key.name, passphrase)}
               onExport={(format, currentPassphrase, exportPassphrase, confirmExportPassphrase) => onExportKey(key.name, format, currentPassphrase, exportPassphrase, confirmExportPassphrase)}
